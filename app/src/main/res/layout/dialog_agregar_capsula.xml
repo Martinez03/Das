@@ -14,6 +14,7 @@
         android:layout_height="wrap_content"
         app:shapeAppearanceSmallComponent="@style/RoundedCorners"
         app:boxStrokeColor="#BDBDBD"
+        app:boxBackgroundColor="#EEEEEE"
         android:layout_marginBottom="16dp">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -33,6 +34,7 @@
         android:layout_height="wrap_content"
         app:shapeAppearanceSmallComponent="@style/RoundedCorners"
         app:boxStrokeColor="#BDBDBD"
+        app:boxBackgroundColor="#EEEEEE"
         android:layout_marginBottom="24dp">
 
         <com.google.android.material.textfield.TextInputEditText
