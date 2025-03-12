@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -25,7 +26,7 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
     private final OnCapsulaClickListener listener;
 
     public interface OnCapsulaClickListener {
-        void onCapsulaClick(List<String> imagenes);
+        void onCapsulaClick(List<String> imagenes, double latitud, double longitud);
     }
 
     public CapsulaAdapter(List<ImagenCapsulaRelation> listaCapsulas, OnCapsulaClickListener listener) {
@@ -60,12 +61,31 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
                     .load(Uri.parse(imagenes.get(0).getUrl()))
                     .into(holder.imgPreview);
         }
+        // Configurar clic en el ítem
         holder.itemView.setOnClickListener(v -> {
             List<String> urls = new ArrayList<>();
-            for (Imagen imagen : relacion.imagenes) {
-                urls.add(imagen.getUrl());
+
+            // Verificar null safety
+            if (relacion.imagenes != null) {
+                for (Imagen imagen : relacion.imagenes) {
+                    if (imagen != null && imagen.getUrl() != null) {
+                        urls.add(imagen.getUrl());
+                    }
+                }
             }
-            listener.onCapsulaClick(urls);
+
+            // Verificar coordenadas válidas
+            if (capsula.getLatitud() != 0 && capsula.getLongitud() != 0) {
+                listener.onCapsulaClick(
+                        urls,
+                        capsula.getLatitud(),
+                        capsula.getLongitud()
+                );
+            } else {
+                Toast.makeText(holder.itemView.getContext(),
+                        "Ubicación no disponible",
+                        Toast.LENGTH_SHORT).show();
+            }
         });
     }
 

@@ -105,7 +105,20 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
         FloatingActionButton fab = view.findViewById(R.id.fab);
+        RecyclerView recyclerView = view.findViewById(R.id.recyclerViewCapsulas);
+
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                if (dy > 0 && fab.isShown()) {
+                    fab.hide(); // Oculta el FAB al hacer scroll hacia abajo
+                } else if (dy < 0 && !fab.isShown()) {
+                    fab.show(); // Muestra el FAB al hacer scroll hacia arriba
+                }
+            }
+        });
         fab.setOnClickListener(v -> mostrarDialogoAgregarCapsula());
     }
 
@@ -299,9 +312,14 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     }
 
     @Override
-    public void onCapsulaClick(List<String> imagenes) {
+    public void onCapsulaClick(List<String> imagenes, double latitud, double longitud) {
         Intent intent = new Intent(getActivity(), DetailCapsuleActivity.class);
+
+        // Las imágenes ya vienen como List<String> desde el adaptador
         intent.putStringArrayListExtra("imagenes", new ArrayList<>(imagenes));
+        intent.putExtra("lat", latitud);  // Usar los parámetros del método
+        intent.putExtra("lng", longitud); // en lugar de currentLat/currentLon
+
         startActivity(intent);
     }
 
