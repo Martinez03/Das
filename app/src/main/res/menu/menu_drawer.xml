@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_language"
+            android:title="@string/change_language"
+            android:icon="@drawable/translate_24px"/>
+
+        <item
+            android:id="@+id/nav_theme"
+            android:title="@string/change_theme"
+            android:icon="@drawable/dark_mode_24px"/>
+    </group>
+</menu>

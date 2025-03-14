@@ -26,7 +26,7 @@
 
         <activity
             android:name=".activities.DetailCapsuleActivity"
-            android:theme="@style/Theme.App.Detail"
+            android:theme="@style/Theme.Das"
             android:parentActivityName=".MainActivity"
             android:exported="false">
 

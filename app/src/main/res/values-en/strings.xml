@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Das</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Map</string>
+    <string name="title_notifications">Profile</string>
+    <string name="navigation_drawer_open">Open drawer</string>
+    <string name="navigation_drawer_close">Close drawer</string>
+    <string name="select_language">Select Language</string>
+    <string name="change_language">Change Language</string>
+    <string name="change_theme">Change Theme</string>
+    <string name="titulo">Título</string>
+    <string name="descripcion">Descripción</string>
+    <string name="ubicacion_capsula">Ubicación de la cápsula</string>
+    <string name="anadir_imagenes">Añadir imágenes</string>
+    <string name="anadir_imagen">Añadir nueva imagen</string>
+</resources>

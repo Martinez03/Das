@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     app:cardCornerRadius="12dp"
     app:cardElevation="0dp"
-    app:cardBackgroundColor="@android:color/white">
+    style="?attr/cardViewStyle">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="#212121"/>
+            android:textColor="?attr/colorOnSurface"/>
 
         <TextView
             android:id="@+id/txtDescripcion"
@@ -28,13 +28,15 @@
             android:layout_height="wrap_content"
             android:textSize="14sp"
             android:layout_marginTop="4dp"
-            android:textColor="#757575"/>
+            android:textColor="?attr/colorOnSurface"
+            android:alpha="0.7"/>
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="150dp"
             android:layout_marginTop="8dp"
-            app:cardCornerRadius="16dp">
+            app:cardCornerRadius="16dp"
+            style="?attr/cardViewStyle">
 
             <ImageView
                 android:id="@+id/imgPreview"
