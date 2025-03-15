@@ -5,6 +5,7 @@ import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.Query;
 import androidx.room.Transaction;
+import androidx.room.Update;
 
 import com.example.das.data.entity.Capsula;
 import com.example.das.data.entity.Imagen;
@@ -20,6 +21,8 @@ public interface CapsulaDao {
 
     @Query("SELECT * FROM capsulas")
     List<Capsula> obtenerCapsulas();
+    @Update
+    void actualizarCapsula(Capsula capsula);
 
     @Delete
     void eliminarCapsula(Capsula capsula);
@@ -42,5 +45,5 @@ public interface CapsulaDao {
     // Consulta para obtener TODAS las cápsulas con imágenes
     @Transaction
     @Query("SELECT * FROM capsulas")
-    List<ImagenCapsulaRelation> obtenerTodasCapsulasConImagenes(); // Método añadido
+    List<ImagenCapsulaRelation> obtenerTodasCapsulasConImagenes();
 }

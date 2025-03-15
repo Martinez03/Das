@@ -2,8 +2,10 @@ package com.example.das.data.entity;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+import java.io.Serializable;
+
 @Entity(tableName = "capsulas")
-public class Capsula {
+public class Capsula implements Serializable {
 
     @PrimaryKey(autoGenerate = true)
     private int id;

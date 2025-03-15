@@ -1,6 +1,7 @@
 package com.example.das.activities;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -12,12 +13,16 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatTextView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.room.Room;
 
 import com.bumptech.glide.Glide;
 import com.example.das.R;
 import com.example.das.adapter.ImagenAdapter;
+import com.example.das.data.database.AppDatabase;
+import com.example.das.data.entity.Capsula;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
@@ -30,35 +35,56 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DetailCapsuleActivity extends AppCompatActivity implements OnMapReadyCallback {
-
+    private AppDatabase db;
     private MapView mapView;
     private GoogleMap googleMap;
     private double latitude;
     private double longitude;
-
-    // Variables para el título y la descripción de la cápsula
+    private Capsula capsula;
     private String capsuleTitle;
     private String capsuleDescription;
 
-    // Referencias a los TextView para actualizar la UI
     private androidx.appcompat.widget.AppCompatTextView tvCapsuleTitle;
     private androidx.appcompat.widget.AppCompatTextView tvCapsuleDescription;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        db = Room.databaseBuilder(this, AppDatabase.class, "geocapsula_db")
+                .allowMainThreadQueries()
+                .fallbackToDestructiveMigration()
+                .build();
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail_capsule);
+        capsula = (Capsula) getIntent().getSerializableExtra("capsula");
 
         // Configurar la toolbar
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        toolbar.setNavigationOnClickListener(v -> finish());
+        toolbar.setNavigationOnClickListener(v -> {
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra("capsulaActualizada", capsula);
+            setResult(RESULT_OK, resultIntent);
+            finish();
+        });
 
-        // Obtener datos del Intent (asegúrate de enviarlos al iniciar la actividad)
-        capsuleTitle = getIntent().getStringExtra("titulo");
-        capsuleDescription = getIntent().getStringExtra("descripcion");
+        tvCapsuleTitle = findViewById(R.id.tvCapsuleTitle);
+        tvCapsuleDescription = findViewById(R.id.tvCapsuleDescription);
 
-        // Obtener imagenes y otros datos del Intent
+
+        capsuleTitle = capsula.getTitulo();
+        capsuleDescription = capsula.getDescripcion();
+
+        // Actualizar la UI de título y descripción
+        if (capsuleTitle != null && !capsuleTitle.isEmpty()) {
+            tvCapsuleTitle.setText(capsuleTitle);
+        }
+
+        if (capsuleDescription != null && !capsuleDescription.isEmpty()) {
+            tvCapsuleDescription.setText(capsuleDescription);
+        }
+
+        // Obtener imágenes y otros datos del Intent
         ArrayList<String> uriStrings = getIntent().getStringArrayListExtra("imagenes");
         List<Uri> images = new ArrayList<>();
         if (uriStrings != null) {
@@ -67,8 +93,8 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
             }
         }
 
-        latitude = getIntent().getDoubleExtra("lat", 0);
-        longitude = getIntent().getDoubleExtra("lng", 0);
+        latitude = capsula.getLatitud();
+        longitude = capsula.getLongitud();
 
         // Configurar RecyclerView con las imágenes
         RecyclerView rvImagenes = findViewById(R.id.rvImagenes);
@@ -86,6 +112,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         mapView.onCreate(savedInstanceState);
         mapView.getMapAsync(this);
     }
+
 
     @Override
     public void onMapReady(GoogleMap gMap) {
@@ -111,14 +138,12 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
     }
 
     private void showEditDialog() {
-        // Inflar el layout del diálogo de edición
         LayoutInflater inflater = LayoutInflater.from(this);
         View dialogView = inflater.inflate(R.layout.dialog_edit_capsule, null);
 
         final EditText etEditTitle = dialogView.findViewById(R.id.etEditTitle);
         final EditText etEditDescription = dialogView.findViewById(R.id.etEditDescription);
 
-        // Prellenar con los datos actuales
         etEditTitle.setText(capsuleTitle);
         etEditDescription.setText(capsuleDescription);
 
@@ -126,23 +151,40 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
                 .setTitle("Editar cápsula")
                 .setView(dialogView)
                 .setPositiveButton("Guardar", (dialogInterface, i) -> {
-                    // Obtener los nuevos valores
-                    capsuleTitle = etEditTitle.getText().toString().trim();
-                    capsuleDescription = etEditDescription.getText().toString().trim();
+                    String nuevoTitulo = etEditTitle.getText().toString().trim();
+                    String nuevaDescripcion = etEditDescription.getText().toString().trim();
 
-                    // Actualizar la UI
-                    tvCapsuleTitle.setText(capsuleTitle);
-                    tvCapsuleDescription.setText(capsuleDescription);
+                    if (!nuevoTitulo.isEmpty()) {
+                        capsuleTitle = nuevoTitulo;
+                        capsuleDescription = nuevaDescripcion;
 
-                    // Aquí puedes agregar el código para actualizar la base de datos o enviar los cambios al servidor
-                    Toast.makeText(DetailCapsuleActivity.this, "Cápsula actualizada", Toast.LENGTH_SHORT).show();
+                        tvCapsuleTitle.setText(capsuleTitle);
+                        tvCapsuleDescription.setText(capsuleDescription);
+
+                        capsula.setTitulo(capsuleTitle);
+                        capsula.setDescripcion(capsuleDescription);
+
+                        new Thread(() -> {
+                            db.capsulaDao().actualizarCapsula(capsula);
+                            runOnUiThread(() -> {
+                                Toast.makeText(this, "Cápsula actualizada", Toast.LENGTH_SHORT).show();
+
+                                // Devolver los datos actualizados a la actividad anterior
+                                Intent resultIntent = new Intent();
+                                resultIntent.putExtra("capsulaActualizada", capsula);
+                                setResult(RESULT_OK, resultIntent);
+                            });
+                        }).start();
+                    } else {
+                        Toast.makeText(this, "El título no puede estar vacío", Toast.LENGTH_SHORT).show();
+                    }
                 })
                 .setNegativeButton("Cancelar", null)
                 .create();
+
         dialog.show();
     }
 
-    // Métodos del ciclo de vida del MapView
     @Override
     protected void onResume() {
         super.onResume();

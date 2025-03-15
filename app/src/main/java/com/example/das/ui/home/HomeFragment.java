@@ -64,6 +64,8 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     private Double currentLon = null;
     private MapView mapView;
     private AlertDialog currentDialog;
+    private static final int REQUEST_CODE_EDITAR_CAPSULA = 2;
+
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -261,10 +263,12 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         startActivityForResult(intent, PICK_IMAGES_REQUEST);
     }
 
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        // Manejar selección de imágenes
         if (requestCode == PICK_IMAGES_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
             List<Uri> uris = new ArrayList<>();
 
@@ -282,6 +286,10 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             }
 
             imagenAdapter.agregarImagenes(uris);
+        }
+        // Manejar actualización de cápsula
+        else if (requestCode == REQUEST_CODE_EDITAR_CAPSULA && resultCode == Activity.RESULT_OK && data != null) {
+            actualizarListaCapsulas();
         }
     }
 
@@ -320,18 +328,14 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             adapter.actualizarDatos(listaCapsulas);
         }
     }
-
     @Override
-    public void onCapsulaClick(List<String> imagenes, double latitud, double longitud) {
+    public void onCapsulaClick(List<String> imagenes, Capsula capsula) {
         Intent intent = new Intent(getActivity(), DetailCapsuleActivity.class);
-
-        // Las imágenes ya vienen como List<String> desde el adaptador
         intent.putStringArrayListExtra("imagenes", new ArrayList<>(imagenes));
-        intent.putExtra("lat", latitud);  // Usar los parámetros del método
-        intent.putExtra("lng", longitud); // en lugar de currentLat/currentLon
-
-        startActivity(intent);
+        intent.putExtra("capsula", capsula);
+        startActivityForResult(intent, REQUEST_CODE_EDITAR_CAPSULA);
     }
+
 
     @Override
     public void onDestroyView() {

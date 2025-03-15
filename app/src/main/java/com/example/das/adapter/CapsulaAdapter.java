@@ -26,7 +26,7 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
     private final OnCapsulaClickListener listener;
 
     public interface OnCapsulaClickListener {
-        void onCapsulaClick(List<String> imagenes, double latitud, double longitud);
+        void onCapsulaClick(List<String> imagenes, Capsula capsula);
     }
 
     public CapsulaAdapter(List<ImagenCapsulaRelation> listaCapsulas, OnCapsulaClickListener listener) {
@@ -78,8 +78,7 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
             if (capsula.getLatitud() != 0 && capsula.getLongitud() != 0) {
                 listener.onCapsulaClick(
                         urls,
-                        capsula.getLatitud(),
-                        capsula.getLongitud()
+                        capsula
                 );
             } else {
                 Toast.makeText(holder.itemView.getContext(),
