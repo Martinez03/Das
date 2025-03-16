@@ -26,7 +26,7 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
     private final OnCapsulaClickListener listener;
 
     public interface OnCapsulaClickListener {
-        void onCapsulaClick(List<String> imagenes, Capsula capsula);
+        void onCapsulaClick(List<Imagen> imagenes, Capsula capsula);
     }
 
     public CapsulaAdapter(List<ImagenCapsulaRelation> listaCapsulas, OnCapsulaClickListener listener) {
@@ -61,23 +61,10 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
                     .load(Uri.parse(imagenes.get(0).getUrl()))
                     .into(holder.imgPreview);
         }
-        // Configurar clic en el ítem
         holder.itemView.setOnClickListener(v -> {
-            List<String> urls = new ArrayList<>();
-
-            // Verificar null safety
-            if (relacion.imagenes != null) {
-                for (Imagen imagen : relacion.imagenes) {
-                    if (imagen != null && imagen.getUrl() != null) {
-                        urls.add(imagen.getUrl());
-                    }
-                }
-            }
-
-            // Verificar coordenadas válidas
             if (capsula.getLatitud() != 0 && capsula.getLongitud() != 0) {
                 listener.onCapsulaClick(
-                        urls,
+                        imagenes,
                         capsula
                 );
             } else {

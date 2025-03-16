@@ -38,8 +38,8 @@ import java.util.Set;
 public class LocationService extends Service {
     private static final int NOTIFICATION_ID = 1;
     private FusedLocationProviderClient fusedLocationClient;
-    private AppDatabase db; // Instancia de la base de datos
-    private static final int UPDATE_INTERVAL = 5000; // 5 segundos
+    private AppDatabase db;
+    private static final int UPDATE_INTERVAL = 60000; // Cada minuto
     private static final float RADIO_MARGEN_KM = 0.1f; // 100 metros
 
     @Override
@@ -56,10 +56,11 @@ public class LocationService extends Service {
         startLocationUpdates();
     }
 
+    //Permisos de ubicacion
     private void startLocationUpdates() {
         LocationRequest request = LocationRequest.create()
                 .setInterval(UPDATE_INTERVAL)
-                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+                .setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             fusedLocationClient.requestLocationUpdates(request, locationCallback, null);
@@ -78,15 +79,19 @@ public class LocationService extends Service {
             }
         }
     };
+
+    //Iniciamos servicio en segundo plano
     private void iniciarServicioForeground() {
         Notification notification = new NotificationCompat.Builder(this, "CANAL_CAPSULAS")
                 .setContentTitle("Monitoreando ubicación")
                 .setContentText("Buscando cápsulas cercanas...")
-                .setSmallIcon(R.drawable.add_24px)
+                .setSmallIcon(R.drawable.pin_drop_24px)
                 .build();
 
         startForeground(NOTIFICATION_ID, notification);
     }
+
+    //Verificamos las capsulas cercanas
     private void verificarCapsulasCercanas(double currentLat, double currentLon) {
         SharedPreferences sp = getSharedPreferences("notified_capsulas", MODE_PRIVATE);
         Set<String> notificados = sp.getStringSet("capsulas_notificadas", new HashSet<>());
@@ -102,6 +107,7 @@ public class LocationService extends Service {
     }
 
 
+    //Calculamos distancias de la capsula a nuestra ubi para que esten en un radio de 100 metros
     public static double calcularDistancia(double lat1, double lon1, double lat2, double lon2) {
         double R = 6371; // Radio de la Tierra en km
         double dLat = Math.toRadians(lat2 - lat1);
@@ -113,6 +119,8 @@ public class LocationService extends Service {
         return R * c; // Distancia en km
     }
 
+
+    //Pusheamos notifiacion
     private void mostrarNotificacionProximidad(Capsula capsula) {
         try {
             // Intent para abrir la cápsula al hacer clic en la notificación
@@ -132,9 +140,7 @@ public class LocationService extends Service {
                     .setContentText("Estás cerca de: " + capsula.getTitulo())
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setContentIntent(pendingIntent) // Acción al hacer clic
-                    .setAutoCancel(true) // Cierra la notificación al hacer clic
-                    .setVibrate(new long[]{0, 500, 250, 500}) // Vibración
-                    .setDefaults(Notification.DEFAULT_SOUND); // Sonido por defecto
+                    .setAutoCancel(true); // Cierra la notificación al hacer clic
 
             // Mostrar la notificación
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -151,6 +157,6 @@ public class LocationService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null; // Este servicio no es ligado
+        return null;
     }
 }

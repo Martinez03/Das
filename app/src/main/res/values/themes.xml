@@ -1,9 +1,9 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.Das" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Colores base -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryDark">@color/purple_500</item>
+        <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">@color/white</item>
+        <item name="android:statusBarColor">@color/primary</item>
 
         <!-- Fondo general y superficies -->
         <item name="android:windowBackground">@color/colorSurface</item>

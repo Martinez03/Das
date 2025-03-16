@@ -1,16 +1,17 @@
 <resources>
-    <string name="app_name">Das</string>
+    <string name="app_name">GeoCapsule</string>
     <string name="title_home">Home</string>
-    <string name="title_dashboard">Map</string>
-    <string name="title_notifications">Profile</string>
-    <string name="navigation_drawer_open">Open drawer</string>
-    <string name="navigation_drawer_close">Close drawer</string>
+    <string name="title_mapa">Map</string>
+    <string name="title_perfil">Profile</string>
+    <string name="navigation_drawer_open">Open menu</string>
+    <string name="navigation_drawer_close">Close menu</string>
     <string name="select_language">Select Language</string>
     <string name="change_language">Change Language</string>
     <string name="change_theme">Change Theme</string>
-    <string name="titulo">Título</string>
-    <string name="descripcion">Descripción</string>
-    <string name="ubicacion_capsula">Ubicación de la cápsula</string>
-    <string name="anadir_imagenes">Añadir imágenes</string>
-    <string name="anadir_imagen">Añadir nueva imagen</string>
+    <string name="titulo">Title</string>
+    <string name="descripcion">Description</string>
+    <string name="ubicacion_capsula">Capsule Location</string>
+    <string name="anadir_imagenes">Add Images</string>
+    <string name="detail">Capsule Detail</string>
+    <string name="imagenes">Images</string>
 </resources>

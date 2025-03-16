@@ -50,6 +50,10 @@ public class MainActivity extends AppCompatActivity {
         setupNavigation();
 
     }
+
+    /**
+     * Canal para cuando guardamos una capsula
+     */
     private void crearCanalNotificaciones() {
         NotificationChannel channel = new NotificationChannel(
                 "CANAL_ID",
@@ -64,6 +68,10 @@ public class MainActivity extends AppCompatActivity {
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(channel);
     }
+
+    /**
+     * Canal para cuando hay capsula cerca
+     */
     private void crearCanalNotificacionesCapsulaCerca() {
         NotificationChannel channel = new NotificationChannel(
                 "CANAL_CAPSULAS",
@@ -77,6 +85,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /**
+     * Controlar toolbar entre pantallas
+     */
     private void setupNavigation() {
         BottomNavigationView navView = findViewById(R.id.nav_view);
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_activity_main);
@@ -99,6 +110,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
+    //Aplicar el tema de las preferencias
     private void applyThemeSettings() {
         SharedPreferences prefs = getSharedPreferences("Settings", MODE_PRIVATE);
         boolean isDarkTheme = prefs.getBoolean("dark_theme", false);
@@ -107,12 +120,15 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
+
+    //Aplicar el idioma de las preferencias
     private void applyLanguageConfiguration() {
         SharedPreferences prefs = getSharedPreferences("Settings", MODE_PRIVATE);
         String lang = prefs.getString("language", "en");
         setLocale(this, lang);
     }
 
+    //Aplicar el idioma
     public static void setLocale(Context context, String langCode) {
         Locale locale = new Locale(langCode);
         Locale.setDefault(locale);

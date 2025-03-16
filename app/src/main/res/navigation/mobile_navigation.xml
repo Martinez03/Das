@@ -14,12 +14,11 @@
     <fragment
         android:id="@+id/navigation_map"
         android:name="com.example.das.ui.map.MapFragment"
-        android:label="@string/title_dashboard"
+        android:label="@string/title_mapa"
         tools:layout="@layout/fragment_map" />
 
     <fragment
         android:id="@+id/navigation_profile"
         android:name="com.example.das.ui.profile.ProfileFragment"
-        android:label="@string/title_notifications"
         tools:layout="@layout/fragment_profile" />
 </navigation>

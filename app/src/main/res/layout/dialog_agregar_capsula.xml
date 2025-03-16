@@ -20,7 +20,7 @@
             android:id="@+id/etTitulo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Título"
+            android:hint="@string/titulo"
             android:textColor="?attr/inputTextColor"
             android:textColorHint="?attr/inputTextColorHint"
             android:textSize="16sp"/>
@@ -49,7 +49,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Ubicación de la cápsula"
+        android:text="@string/ubicacion_capsula"
         android:textColor="?attr/textPrimaryColor"
         android:textSize="14sp"
         android:layout_marginBottom="8dp"
@@ -73,7 +73,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Añadir imágenes"
+        android:text="@string/anadir_imagenes"
         android:textColor="?attr/textPrimaryColor"
         android:textSize="14sp"
         android:layout_marginBottom="8dp"

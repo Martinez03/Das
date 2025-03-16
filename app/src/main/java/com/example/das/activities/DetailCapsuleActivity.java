@@ -54,12 +54,24 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
     private double latitude;
     private double longitude;
     private Capsula capsula;
+    private List<Imagen> imagenes;
     private String capsuleTitle;
     private String capsuleDescription;
+    // Variables para el diálogo de edición
+    private AlertDialog editDialog;
+    private boolean isEditDialogShowing = false;
+    private String savedEditTitle = null;
+    private String savedEditDescription = null;
+
 
     private androidx.appcompat.widget.AppCompatTextView tvCapsuleTitle;
     private androidx.appcompat.widget.AppCompatTextView tvCapsuleDescription;
 
+
+    /**
+     *
+     * Inicializa el activity con los datos de la capsula clickada
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         db = Room.databaseBuilder(this, AppDatabase.class, "geocapsula_db")
@@ -84,7 +96,6 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         tvCapsuleTitle = findViewById(R.id.tvCapsuleTitle);
         tvCapsuleDescription = findViewById(R.id.tvCapsuleDescription);
 
-
         capsuleTitle = capsula.getTitulo();
         capsuleDescription = capsula.getDescripcion();
 
@@ -92,17 +103,16 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         if (capsuleTitle != null && !capsuleTitle.isEmpty()) {
             tvCapsuleTitle.setText(capsuleTitle);
         }
-
         if (capsuleDescription != null && !capsuleDescription.isEmpty()) {
             tvCapsuleDescription.setText(capsuleDescription);
         }
 
         // Obtener imágenes y otros datos del Intent
-        ArrayList<String> uriStrings = getIntent().getStringArrayListExtra("imagenes");
+        imagenes = (List<Imagen>) getIntent().getSerializableExtra("imagenes");
         List<Uri> images = new ArrayList<>();
-        if (uriStrings != null) {
-            for (String uriString : uriStrings) {
-                images.add(Uri.parse(uriString));
+        if (imagenes != null) {
+            for (Imagen uriString : imagenes) {
+                images.add(Uri.parse(uriString.getUrl()));
             }
         }
 
@@ -124,12 +134,23 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         mapView = findViewById(R.id.mapView);
         mapView.onCreate(savedInstanceState);
         mapView.getMapAsync(this);
+
+        // Restaurar el estado del diálogo de edición si estaba abierto
+        if (savedInstanceState != null && savedInstanceState.getBoolean("isEditDialogShowing", false)) {
+            savedEditTitle = savedInstanceState.getString("savedEditTitle");
+            savedEditDescription = savedInstanceState.getString("savedEditDescription");
+            showEditDialog(savedEditTitle, savedEditDescription);
+        }
     }
 
+    /**
+     *
+     * Opciones del toolbar editar, exportar, eliminar
+     */
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_edit) {
-            showEditDialog();
+            showEditDialog(null, null);
             return true;
         } else if (item.getItemId() == R.id.action_delete) {
             confirmarEliminacion();
@@ -140,6 +161,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         }
         return super.onOptionsItemSelected(item);
     }
+
     private void exportarATXT() {
         String nombreArchivo = "capsula_" + capsula.getId() + ".txt";
         StringBuilder contenido = new StringBuilder()
@@ -158,6 +180,11 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         guardarArchivoEnDescargas(nombreArchivo, contenido.toString());
     }
 
+
+    /**
+     *
+     * Se guarda el txt en la carpeta descargas
+     */
     @RequiresApi(api = Build.VERSION_CODES.Q)
     private void guardarArchivoEnDescargas(String nombreArchivo, String contenido) {
         ContentResolver resolver = getContentResolver();
@@ -182,6 +209,11 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         }
     }
 
+
+    /**
+     *
+     * Dialog para confirmar la eliminacion de la capsula
+     */
     private void confirmarEliminacion() {
         new AlertDialog.Builder(this)
                 .setTitle("Eliminar cápsula")
@@ -191,6 +223,10 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
                 .show();
     }
 
+    /**
+     *
+     * Se elimina la capsula de la base de datos
+     */
     private void eliminarCapsula() {
         new Thread(() -> {
             db.capsulaDao().eliminarCapsula(capsula);
@@ -205,7 +241,10 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
     }
 
 
-
+    /**
+     *
+     * Mapa
+     */
     @Override
     public void onMapReady(GoogleMap gMap) {
         googleMap = gMap;
@@ -220,17 +259,32 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         return true;
     }
 
-    private void showEditDialog() {
+
+    /**
+     *
+     * Se ve el dialog para editar la capsula, si la pantalla cambia los datos persisten
+     */
+    private void showEditDialog(String initialTitle, String initialDescription) {
         LayoutInflater inflater = LayoutInflater.from(this);
         View dialogView = inflater.inflate(R.layout.dialog_edit_capsule, null);
 
         final EditText etEditTitle = dialogView.findViewById(R.id.etEditTitle);
         final EditText etEditDescription = dialogView.findViewById(R.id.etEditDescription);
 
-        etEditTitle.setText(capsuleTitle);
-        etEditDescription.setText(capsuleDescription);
+        // Asigna los valores iniciales: si se pasan desde el estado guardado, se usan; de lo contrario, se usan los actuales
+        if (initialTitle != null) {
+            etEditTitle.setText(initialTitle);
+        } else {
+            etEditTitle.setText(capsuleTitle);
+        }
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        if (initialDescription != null) {
+            etEditDescription.setText(initialDescription);
+        } else {
+            etEditDescription.setText(capsuleDescription);
+        }
+
+        editDialog = new AlertDialog.Builder(this)
                 .setTitle("Editar cápsula")
                 .setView(dialogView)
                 .setPositiveButton("Guardar", (dialogInterface, i) -> {
@@ -265,8 +319,13 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
                 .setNegativeButton("Cancelar", null)
                 .create();
 
-        dialog.show();
+        // Cuando se cierre el diálogo, se actualiza la bandera
+        editDialog.setOnDismissListener(dialog -> isEditDialogShowing = false);
+
+        isEditDialogShowing = true;
+        editDialog.show();
     }
+
 
     @Override
     protected void onResume() {
@@ -292,9 +351,24 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         mapView.onLowMemory();
     }
 
+    /**
+     *
+     * Por si se cambia la pantalla siguen los datos del dialog si este esta abierto
+     */
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
+
+        if (editDialog != null && editDialog.isShowing()) {
+            EditText etEditTitle = editDialog.findViewById(R.id.etEditTitle);
+            EditText etEditDescription = editDialog.findViewById(R.id.etEditDescription);
+            if (etEditTitle != null && etEditDescription != null) {
+                outState.putBoolean("isEditDialogShowing", true);
+                outState.putString("savedEditTitle", etEditTitle.getText().toString());
+                outState.putString("savedEditDescription", etEditDescription.getText().toString());
+            }
+        }
     }
+
 }

@@ -4,6 +4,8 @@ import androidx.room.Entity;
 import androidx.room.ForeignKey;
 import androidx.room.PrimaryKey;
 
+import java.io.Serializable;
+
 @Entity(
         tableName = "imagenes",
         foreignKeys = @ForeignKey(
@@ -13,7 +15,7 @@ import androidx.room.PrimaryKey;
                 onDelete = ForeignKey.CASCADE
         )
 )
-public class Imagen {
+public class Imagen  implements Serializable {
     @PrimaryKey(autoGenerate = true)
     private int id;
     private int capsulaId; // Relación con Capsula

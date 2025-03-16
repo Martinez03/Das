@@ -16,7 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:navigationIcon="@drawable/arrow_back_24px"
-            app:title="Detalle de la cápsula"
+            app:title="@string/detail"
             app:titleTextColor="?attr/colorOnPrimary"/>
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -56,7 +56,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Fotos de la cápsula"
+                android:text="@string/imagenes"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -73,7 +73,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Ubicación de la cápsula"
+                android:text="@string/ubicacion_capsula"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="18sp"
                 android:layout_marginBottom="8dp"

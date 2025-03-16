@@ -4,7 +4,9 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.NotificationChannel;
 import android.content.ClipData;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -16,6 +18,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.Toast;
 import android.app.AlertDialog;
 
@@ -52,13 +56,16 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executors;
 
 public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaClickListener {
 
     private static final int PICK_IMAGES_REQUEST = 101;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     private static final int STORAGE_PERMISSION_REQUEST_CODE = 1002;
+    private static final int REQUEST_CODE_EDITAR_CAPSULA = 2;
 
     private AppDatabase db;
     private List<ImagenCapsulaRelation> listaCapsulas;
@@ -70,9 +77,18 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     private Double currentLon = null;
     private MapView mapView;
     private AlertDialog currentDialog;
-    private static final int REQUEST_CODE_EDITAR_CAPSULA = 2;
+
+    // Variables para guardar estado del diálogo
+    private boolean isDialogShowing = false;
+    private String savedTitulo;
+    private String savedDescripcion;
+    private ArrayList<Uri> savedImagenes = new ArrayList<>();
+    private SharedPreferences prefs;
 
 
+    /**
+     * Se encarga de inicializar servicios, restaurar estados previos y solicitar permisos.
+     */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,28 +97,29 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         ContextCompat.startForegroundService(requireContext(), serviceIntent);
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
         solicitarPermisosIniciales();
-    }
 
-    private void solicitarPermisosIniciales() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-
-            ActivityCompat.requestPermissions(requireActivity(),
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    LOCATION_PERMISSION_REQUEST_CODE);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-
-                ActivityCompat.requestPermissions(requireActivity(),
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                        1003);
+        // Restaurar estado guardado
+        if (savedInstanceState != null) {
+            isDialogShowing = savedInstanceState.getBoolean("dialog_showing", false);
+            savedTitulo = savedInstanceState.getString("titulo");
+            savedDescripcion = savedInstanceState.getString("descripcion");
+            currentLat = savedInstanceState.getDouble("lat");
+            currentLon = savedInstanceState.getDouble("lon");
+            ArrayList<String> imagenesStrings = savedInstanceState.getStringArrayList("imagenes");
+            savedImagenes.clear();
+            if (imagenesStrings != null) {
+                for (String uriString : imagenesStrings) {
+                    savedImagenes.add(Uri.parse(uriString));
+                }
             }
         }
+
     }
 
+    /**
+     * Se encarga de inicializar la base de datos, configurar la lista de cápsulas
+     * y cargar datos de ejemplo si es la primera ejecución.
+     */
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
@@ -117,7 +134,19 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
                 .fallbackToDestructiveMigration()
                 .build();
 
+
+        // Inicializar SharedPreferences
+        prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+
+        // Verificar si es primera ejecución
+        if (prefs.getBoolean("first_run", true)) {
+            insertarDatosEjemplo();
+            actualizarListaCapsulas();
+
+            prefs.edit().putBoolean("first_run", false).apply();
+        }
         actualizarListaCapsulas();
+
         adapter = new CapsulaAdapter(listaCapsulas, this);
         recyclerView.setAdapter(adapter);
 
@@ -132,7 +161,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         if (getActivity() != null) {
             ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
             if (actionBar != null) {
-                actionBar.setDisplayHomeAsUpEnabled(false); // Deshabilitar botón de retroceso
+                actionBar.setDisplayHomeAsUpEnabled(false);
             }
         }
 
@@ -143,20 +172,125 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 if (dy > 0 && fab.isShown()) {
-                    fab.hide(); // Oculta el FAB al hacer scroll hacia abajo
+                    fab.hide();
                 } else if (dy < 0 && !fab.isShown()) {
-                    fab.show(); // Muestra el FAB al hacer scroll hacia arriba
+                    fab.show();
                 }
             }
         });
         fab.setOnClickListener(v -> mostrarDialogoAgregarCapsula());
+
+        // Restaurar diálogo si estaba abierto
+        if (isDialogShowing) {
+            mostrarDialogoAgregarCapsula(savedTitulo, savedDescripcion, savedImagenes);
+        }
     }
 
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (currentDialog != null && currentDialog.isShowing()) {
+            outState.putBoolean("dialog_showing", true);
+
+            EditText etTitulo = currentDialog.findViewById(R.id.etTitulo);
+            if (etTitulo != null) {
+                outState.putString("titulo", etTitulo.getText().toString());
+            }
+            EditText etDescripcion = currentDialog.findViewById(R.id.etDescripcion);
+            if (etDescripcion != null) {
+                outState.putString("descripcion", etDescripcion.getText().toString());
+            }
+            if (imagenAdapter != null) {
+                List<Uri> imagenes = imagenAdapter.getImagenes();
+                ArrayList<String> uris = new ArrayList<>();
+                for (Uri uri : imagenes) {
+                    uris.add(uri.toString());
+                }
+                outState.putStringArrayList("imagenes", uris);
+            }
+            outState.putDouble("lat", currentLat);
+            outState.putDouble("lon", currentLon);
+        } else {
+            outState.putBoolean("dialog_showing", false);
+        }
+    }
+
+    /**
+     * Se ejecuta en un hilo secundario para evitar bloqueos en la UI.
+     */
+    private void insertarDatosEjemplo() {
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                List<Capsula> capsulas = Arrays.asList(
+                        new Capsula("Monumento Histórico", "Descripción del lugar emblemático", 40.416775, -3.703790),
+                        new Capsula("Parque Natural", "Área verde con senderos para caminar", 41.385063, 2.173404),
+                        new Capsula("Mirador Panorámico", "Vistas espectaculares de la ciudad", 40.712776, -74.005974)
+                );
+
+                int[] imagenes = {
+                        R.drawable.imagen1,
+                        R.drawable.imagen2,
+                        R.drawable.imagen3
+                };
+
+                // Insertar cápsulas con imágenes específicas
+                for (int i = 0; i < capsulas.size(); i++) {
+                    Capsula capsula = capsulas.get(i);
+                    long id = db.capsulaDao().insertarCapsula(capsula);
+
+                    List<Integer> imagenesCapsula = new ArrayList<>();
+                    switch (i) {
+                        case 0:
+                            imagenesCapsula.add(imagenes[0]);
+                            imagenesCapsula.add(imagenes[1]);
+                            break;
+                        case 1:
+                            imagenesCapsula.add(imagenes[2]);
+                            imagenesCapsula.add(imagenes[1]);
+                            break;
+                        case 2:
+                            imagenesCapsula.add(imagenes[1]);
+                            imagenesCapsula.add(imagenes[0]);
+                            imagenesCapsula.add(imagenes[2]);
+                            break;
+                    }
+
+                    // Insertar imágenes
+                    String packageName = requireContext().getPackageName();
+                    for (int imagenRes : imagenesCapsula) {
+                        String imageUri = "android.resource://" + packageName + "/" + imagenRes;
+                        db.capsulaDao().insertarImagen(new Imagen((int) id, imageUri));
+                    }
+                }
+
+                requireActivity().runOnUiThread(() -> {
+                    actualizarListaCapsulas();
+                    Toast.makeText(requireContext(), "Datos de ejemplo cargados", Toast.LENGTH_SHORT).show();
+                });
+
+            } catch (Exception e) {
+                Log.e("HomeFragment", "Error insertando datos: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Aqui se muestra el dialog para agregar capsula si se ha movido la pantalla es decir se ha tumbado
+     * se siguen mostrando los datos que el usuario habia puesto y se cambia de layout
+     */
     private void mostrarDialogoAgregarCapsula() {
+        mostrarDialogoAgregarCapsula(savedTitulo, savedDescripcion, savedImagenes);
+    }
+
+    /**
+     * Aqui se muestra el dialog para agregar capsula
+     */
+    private void mostrarDialogoAgregarCapsula(String titulo, String descripcion, List<Uri> imagenes) {
         obtenerUbicacionActual();
 
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_agregar_capsula, null);
+        View dialogView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_agregar_capsula, null);
         builder.setView(dialogView);
 
         // Configurar mapa
@@ -167,13 +301,23 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         RecyclerView rvImagenes = dialogView.findViewById(R.id.rvImagenes);
         rvImagenes.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
         imagenAdapter = new ImagenAdapter();
+        if (imagenes != null && !imagenes.isEmpty()) {
+            imagenAdapter.agregarImagenes(imagenes);
+        }
         rvImagenes.setAdapter(imagenAdapter);
 
-        ImageView ivAddPhoto = dialogView.findViewById(R.id.ivAddPhoto); // Asegúrate de agregar este ID en el XML
+        ImageView ivAddPhoto = dialogView.findViewById(R.id.ivAddPhoto);
         ivAddPhoto.setOnClickListener(v -> verificarPermisosArchivos());
 
         EditText etTitulo = dialogView.findViewById(R.id.etTitulo);
         EditText etDescripcion = dialogView.findViewById(R.id.etDescripcion);
+
+        if (titulo != null) {
+            etTitulo.setText(titulo);
+        }
+        if (descripcion != null) {
+            etDescripcion.setText(descripcion);
+        }
 
         builder.setPositiveButton("Guardar", (dialog, which) -> {
             if (validarYCrearCapsula(etTitulo, etDescripcion)) {
@@ -189,8 +333,19 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         // Manejar ciclo de vida del MapView
         mapView.onCreate(currentDialog.onSaveInstanceState());
         mapView.onResume();
-    }
 
+        currentDialog.setOnDismissListener(dialog -> {
+            isDialogShowing = false;
+            savedTitulo = null;
+            savedDescripcion = null;
+            savedImagenes.clear();
+        });
+
+        isDialogShowing = true;
+    }
+    /**
+     * Inicializa el mapa que se muestra en el dialog
+     */
     private void inicializarMapa() {
         mapView.getMapAsync(googleMap -> {
             if (currentLat != null && currentLon != null) {
@@ -247,6 +402,9 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         }
     }
 
+    /**
+     * Obtener la ubiacion actual para cuando creamos una capsula
+     */
     private void obtenerUbicacionActual() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -273,6 +431,33 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         return true;
     }
 
+    /**
+     * Solicitar permisos iniciales al usuario.
+     */
+    private void solicitarPermisosIniciales() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(requireActivity(),
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+
+                ActivityCompat.requestPermissions(requireActivity(),
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        1003);
+            }
+        }
+    }
+
+    /**
+     *
+     * Guarda las imágenes seleccionadas en una lista para ser añadidas a la cápsula.
+     */
     private void abrirSelectorImagenes() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -281,7 +466,9 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         startActivityForResult(intent, PICK_IMAGES_REQUEST);
     }
 
-
+    /**
+     * Cuando se edita una capsula se actualiza la lista para que se muestren los cambios.
+     */
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -317,7 +504,10 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
         );
     }
-
+    /**
+     * Guardar una nueva cápsula en la base de datos.
+     * Se ejecuta en un hilo secundario para evitar bloqueos en la interfaz de usuario.
+     */
     private void guardarCapsulaConImagenes(String titulo, String descripcion, double latitud,
                                            double longitud, List<Uri> imagenes) {
         try {
@@ -341,6 +531,9 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         }
     }
 
+    /**
+     * Pushea la notificacion de capsula agregada
+     */
     private void mostrarNotificacionConfirmacion(String tituloCapsula) {
         try {
             NotificationCompat.Builder builder = new NotificationCompat.Builder(requireContext(), "CANAL_ID")
@@ -378,19 +571,24 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         }
     }
 
-
-
-
+    /**
+     * Actualizar la lista de cápsulas desde la base de datos
+     * y notificar al adaptador de los cambios.
+     */
     private void actualizarListaCapsulas() {
         listaCapsulas = db.capsulaDao().obtenerTodasCapsulasConImagenes();
         if (adapter != null) {
             adapter.actualizarDatos(listaCapsulas);
         }
     }
+
+    /**
+     *Para cuando hacemos click en una cápsula
+     */
     @Override
-    public void onCapsulaClick(List<String> imagenes, Capsula capsula) {
+    public void onCapsulaClick(List<Imagen> imagenes, Capsula capsula) {
         Intent intent = new Intent(getActivity(), DetailCapsuleActivity.class);
-        intent.putStringArrayListExtra("imagenes", new ArrayList<>(imagenes));
+        intent.putExtra("imagenes", new ArrayList<>(imagenes));
         intent.putExtra("capsula", capsula);
         startActivityForResult(intent, REQUEST_CODE_EDITAR_CAPSULA);
     }

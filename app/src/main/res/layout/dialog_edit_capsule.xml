@@ -14,7 +14,7 @@
             android:id="@+id/etEditTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Título"/>
+            android:hint="@string/titulo"/>
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
@@ -25,6 +25,6 @@
             android:id="@+id/etEditDescription"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Descripción"/>
+            android:hint="@string/descripcion"/>
     </com.google.android.material.textfield.TextInputLayout>
 </LinearLayout>
