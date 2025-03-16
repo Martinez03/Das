@@ -1,11 +1,13 @@
 package com.example.das;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
-import android.view.MenuItem;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.navigation.NavController;
@@ -16,45 +18,15 @@ import androidx.navigation.ui.NavigationUI;
 import com.example.das.databinding.ActivityMainBinding;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.os.Bundle;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.app.AppCompatDelegate;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
-
-import com.example.das.databinding.ActivityMainBinding;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import java.util.Locale;
 
 // Para ProfileFragment
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.view.MenuItem;
 import android.view.View;
-import android.widget.TextView;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.ActionBarDrawerToggle;
-import androidx.appcompat.app.AlertDialog;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
-import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProvider;
-
-import com.example.das.R;
-import com.example.das.databinding.FragmentProfileBinding;
-import com.google.android.material.navigation.NavigationView;
-
-import java.util.Locale;
-
-import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -66,6 +38,8 @@ public class MainActivity extends AppCompatActivity {
         applyThemeSettings();
         applyLanguageConfiguration();
         super.onCreate(savedInstanceState);
+        crearCanalNotificaciones();
+        crearCanalNotificacionesCapsulaCerca();
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -74,7 +48,34 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(mainToolbar);
 
         setupNavigation();
+
     }
+    private void crearCanalNotificaciones() {
+        NotificationChannel channel = new NotificationChannel(
+                "CANAL_ID",
+                "Cápsulas",
+                NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.setDescription("Notificaciones de cápsulas guardadas");
+        channel.enableLights(true);
+        channel.setLightColor(Color.BLUE);
+
+
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(channel);
+    }
+    private void crearCanalNotificacionesCapsulaCerca() {
+        NotificationChannel channel = new NotificationChannel(
+                "CANAL_CAPSULAS",
+                "Notificaciones de cápsulas",
+                NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.setDescription("Notificaciones cuando estás cerca de una cápsula");
+        channel.enableLights(true);
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(channel);
+    }
+
 
     private void setupNavigation() {
         BottomNavigationView navView = findViewById(R.id.nav_view);

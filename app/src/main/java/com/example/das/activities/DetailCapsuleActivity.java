@@ -1,9 +1,15 @@
 package com.example.das.activities;
 
 import android.app.AlertDialog;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -12,8 +18,10 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatTextView;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
@@ -23,6 +31,7 @@ import com.example.das.R;
 import com.example.das.adapter.ImagenAdapter;
 import com.example.das.data.database.AppDatabase;
 import com.example.das.data.entity.Capsula;
+import com.example.das.data.entity.Imagen;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
@@ -31,6 +40,10 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.appbar.MaterialToolbar;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -113,6 +126,85 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         mapView.getMapAsync(this);
     }
 
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_edit) {
+            showEditDialog();
+            return true;
+        } else if (item.getItemId() == R.id.action_delete) {
+            confirmarEliminacion();
+            return true;
+        } else if (item.getItemId() == R.id.action_export) {
+            exportarATXT();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+    private void exportarATXT() {
+        String nombreArchivo = "capsula_" + capsula.getId() + ".txt";
+        StringBuilder contenido = new StringBuilder()
+                .append("Título: ").append(capsula.getTitulo()).append("\n")
+                .append("Descripción: ").append(capsula.getDescripcion()).append("\n")
+                .append("Coordenadas: ").append(capsula.getLatitud()).append(", ").append(capsula.getLongitud()).append("\n")
+                .append("Imágenes:\n");
+
+        // Obtener URLs de imágenes si es necesario
+        List<Imagen> imagenes = db.capsulaDao().obtenerImagenesPorCapsula(capsula.getId());
+        for (Imagen imagen : imagenes) {
+            contenido.append("- ").append(imagen.getUrl()).append("\n");
+        }
+
+        // Guardar el archivo en la carpeta de descargas
+        guardarArchivoEnDescargas(nombreArchivo, contenido.toString());
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.Q)
+    private void guardarArchivoEnDescargas(String nombreArchivo, String contenido) {
+        ContentResolver resolver = getContentResolver();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Downloads.DISPLAY_NAME, nombreArchivo);
+        values.put(MediaStore.Downloads.MIME_TYPE, "text/plain");
+        values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+        Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+        if (uri != null) {
+            try (OutputStream outputStream = resolver.openOutputStream(uri)) {
+                if (outputStream != null) {
+                    outputStream.write(contenido.getBytes());
+                    Toast.makeText(this, "Archivo guardado en Descargas", Toast.LENGTH_LONG).show();
+                }
+            } catch (IOException e) {
+                Toast.makeText(this, "Error al guardar el archivo: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                e.printStackTrace();
+            }
+        } else {
+            Toast.makeText(this, "Error al crear el archivo", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void confirmarEliminacion() {
+        new AlertDialog.Builder(this)
+                .setTitle("Eliminar cápsula")
+                .setMessage("¿Estás seguro de eliminar esta cápsula?")
+                .setPositiveButton("Eliminar", (dialog, which) -> eliminarCapsula())
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void eliminarCapsula() {
+        new Thread(() -> {
+            db.capsulaDao().eliminarCapsula(capsula);
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Cápsula eliminada", Toast.LENGTH_SHORT).show();
+                Intent resultIntent = new Intent();
+                resultIntent.putExtra("capsulaActualizada", capsula);
+                setResult(RESULT_OK, resultIntent);
+                finish();
+            });
+        }).start();
+    }
+
+
 
     @Override
     public void onMapReady(GoogleMap gMap) {
@@ -126,15 +218,6 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_detail_capsule, menu);
         return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.action_edit) {
-            showEditDialog();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     private void showEditDialog() {

@@ -2,11 +2,14 @@ package com.example.das.ui.home;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.NotificationChannel;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,6 +24,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -28,6 +33,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 
+import com.example.das.LocationService;
 import com.example.das.R;
 import com.example.das.activities.DetailCapsuleActivity;
 import com.example.das.adapter.CapsulaAdapter;
@@ -70,18 +76,30 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Intent serviceIntent = new Intent(requireContext(), LocationService.class);
+        ContextCompat.startForegroundService(requireContext(), serviceIntent);
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
         solicitarPermisosIniciales();
     }
 
     private void solicitarPermisosIniciales() {
-        // Solicitar permisos de ubicación al iniciar
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
 
             ActivityCompat.requestPermissions(requireActivity(),
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     LOCATION_PERMISSION_REQUEST_CODE);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+
+                ActivityCompat.requestPermissions(requireActivity(),
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        1003);
+            }
         }
     }
 
@@ -315,12 +333,53 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             }
 
             actualizarListaCapsulas();
+            mostrarNotificacionConfirmacion(titulo);
             Toast.makeText(requireContext(), "Cápsula guardada exitosamente", Toast.LENGTH_SHORT).show();
 
         } catch (NumberFormatException e) {
             Toast.makeText(requireContext(), "Error en formato numérico", Toast.LENGTH_SHORT).show();
         }
     }
+
+    private void mostrarNotificacionConfirmacion(String tituloCapsula) {
+        try {
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(requireContext(), "CANAL_ID")
+                    .setSmallIcon(R.drawable.notifications_24px)
+                    .setContentTitle("Cápsula guardada")
+                    .setContentText("'" + tituloCapsula + "' se ha guardado exitosamente")
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true);
+
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(requireContext());
+
+            // Verificar que el canal de notificación existe
+            NotificationChannel channel = notificationManager.getNotificationChannel("CANAL_ID");
+            if (channel == null) {
+                Toast.makeText(requireContext(), "Error: Canal de notificaciones no creado", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Verificar y solicitar permiso si es necesario
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+                    ActivityCompat.requestPermissions(requireActivity(),
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+
+                    return;
+                }
+            }
+
+            notificationManager.notify((int) System.currentTimeMillis(), builder.build());
+
+        } catch (Exception e) {
+            Log.e("Notificaciones", "Error al mostrar notificación: " + e.getMessage());
+        }
+    }
+
+
+
 
     private void actualizarListaCapsulas() {
         listaCapsulas = db.capsulaDao().obtenerTodasCapsulasConImagenes();
