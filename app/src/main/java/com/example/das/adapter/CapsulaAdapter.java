@@ -56,12 +56,12 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
         holder.txtTitulo.setText(capsula.getTitulo());
         holder.txtDescripcion.setText(capsula.getDescripcion());
 
-        if (!imagenes.isEmpty()) {
-            Glide.with(holder.itemView.getContext())
-                    .load(Uri.parse(imagenes.get(0).getUrl()))
-                    .into(holder.imgPreview);
+       // if (!imagenes.isEmpty()) {
+         //   Glide.with(holder.itemView.getContext())
+           //         .load(Uri.parse(imagenes.get(0).getUrl()))
+             //       .into(holder.imgPreview);
         }
-        holder.itemView.setOnClickListener(v -> {
+       /* holder.itemView.setOnClickListener(v -> {
             if (capsula.getLatitud() != 0 && capsula.getLongitud() != 0) {
                 listener.onCapsulaClick(
                         imagenes,
@@ -73,7 +73,7 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
                         Toast.LENGTH_SHORT).show();
             }
         });
-    }
+    }*/
 
     @Override
     public int getItemCount() {

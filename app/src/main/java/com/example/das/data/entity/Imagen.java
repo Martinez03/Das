@@ -15,16 +15,17 @@ import java.io.Serializable;
                 onDelete = ForeignKey.CASCADE
         )
 )
-public class Imagen  implements Serializable {
+public class Imagen implements Serializable {
     @PrimaryKey(autoGenerate = true)
-    private int id;
-    private int capsulaId; // Relación con Capsula
-    private String url;
+    private int id; // Entero autoincremental
+    private int capsulaId;
+    private byte[] foto;
+    private String titulo;
 
     // Constructor
-    public Imagen(int capsulaId, String url) {
+    public Imagen(int capsulaId, byte[] foto, String titulo) {
         this.capsulaId = capsulaId;
-        this.url = url;
+        this.foto = foto;
     }
 
     // Getters y setters
@@ -34,6 +35,19 @@ public class Imagen  implements Serializable {
     public int getCapsulaId() { return capsulaId; }
     public void setCapsulaId(int capsulaId) { this.capsulaId = capsulaId; }
 
-    public String getUrl() { return url; }
-    public void setUrl(String url) { this.url = url; }
+    public byte[] getFoto() {
+        return foto;
+    }
+
+    public void setFoto( byte[] foto) {
+        this.foto = foto;
+    }
+
+    public String getTitulo() {
+        return titulo;
+    }
+
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
+    }
 }

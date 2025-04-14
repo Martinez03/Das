@@ -46,6 +46,8 @@ import com.example.das.data.database.AppDatabase;
 import com.example.das.data.entity.Capsula;
 import com.example.das.data.entity.Imagen;
 import com.example.das.data.entity.ImagenCapsulaRelation;
+import com.example.das.webservice.CapsulasWebService;
+import com.example.das.webservice.UsuariosWebService;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -54,6 +56,9 @@ import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,7 +72,6 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     private static final int STORAGE_PERMISSION_REQUEST_CODE = 1002;
     private static final int REQUEST_CODE_EDITAR_CAPSULA = 2;
 
-    private AppDatabase db;
     private List<ImagenCapsulaRelation> listaCapsulas;
     private CapsulaAdapter adapter;
     private RecyclerView recyclerView;
@@ -85,6 +89,10 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     private ArrayList<Uri> savedImagenes = new ArrayList<>();
     private SharedPreferences prefs;
 
+    private Button btnLogin;
+    private FloatingActionButton fab;
+
+
 
     /**
      * Se encarga de inicializar servicios, restaurar estados previos y solicitar permisos.
@@ -92,10 +100,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        Intent serviceIntent = new Intent(requireContext(), LocationService.class);
-        ContextCompat.startForegroundService(requireContext(), serviceIntent);
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
+        prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
         solicitarPermisosIniciales();
 
         // Restaurar estado guardado
@@ -121,33 +126,16 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
      * y cargar datos de ejemplo si es la primera ejecución.
      */
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
+        // Inicializar vistas
         recyclerView = view.findViewById(R.id.recyclerViewCapsulas);
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        fab = view.findViewById(R.id.fab);
+        btnLogin = view.findViewById(R.id.btnLogin);
 
-        db = Room.databaseBuilder(requireContext(),
-                        AppDatabase.class, "geocapsula_db")
-                .allowMainThreadQueries()
-                .fallbackToDestructiveMigration()
-                .build();
-
-
-        // Inicializar SharedPreferences
-        prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
-
-        // Verificar si es primera ejecución
-        if (prefs.getBoolean("first_run", true)) {
-            insertarDatosEjemplo();
-            actualizarListaCapsulas();
-
-            prefs.edit().putBoolean("first_run", false).apply();
-        }
-        actualizarListaCapsulas();
-
-        adapter = new CapsulaAdapter(listaCapsulas, this);
+        adapter = new CapsulaAdapter(new ArrayList<>(), this);
         recyclerView.setAdapter(adapter);
 
         return view;
@@ -165,7 +153,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             }
         }
 
-        FloatingActionButton fab = view.findViewById(R.id.fab);
+        fab = view.findViewById(R.id.fab);
         RecyclerView recyclerView = view.findViewById(R.id.recyclerViewCapsulas);
 
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -184,6 +172,10 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         if (isDialogShowing) {
             mostrarDialogoAgregarCapsula(savedTitulo, savedDescripcion, savedImagenes);
         }
+        btnLogin = view.findViewById(R.id.btnLogin);
+        btnLogin.setOnClickListener(v -> mostrarDialogoLogin());
+
+        checkLoginState();
     }
 
     @Override
@@ -214,65 +206,110 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             outState.putBoolean("dialog_showing", false);
         }
     }
+    private void checkLoginState() {
+        boolean isLoggedIn = prefs.contains("usuario_id");
+        if (isLoggedIn) {
+            btnLogin.setVisibility(View.GONE);
+            recyclerView.setVisibility(View.VISIBLE);
+            fab.setVisibility(View.VISIBLE);
+            Intent serviceIntent = new Intent(requireContext(), LocationService.class);
+            ContextCompat.startForegroundService(requireContext(), serviceIntent);
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
+        } else {
+            btnLogin.setVisibility(View.VISIBLE);
+            recyclerView.setVisibility(View.GONE);
+            fab.setVisibility(View.GONE);
+        }
+    }
 
-    /**
-     * Se ejecuta en un hilo secundario para evitar bloqueos en la UI.
-     */
-    private void insertarDatosEjemplo() {
-        Executors.newSingleThreadExecutor().execute(() -> {
-            try {
-                List<Capsula> capsulas = Arrays.asList(
-                        new Capsula("Monumento Histórico", "Descripción del lugar emblemático", 40.416775, -3.703790),
-                        new Capsula("Parque Natural", "Área verde con senderos para caminar", 41.385063, 2.173404),
-                        new Capsula("Mirador Panorámico", "Vistas espectaculares de la ciudad", 40.712776, -74.005974)
-                );
+    private void mostrarDialogoLogin() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_login, null);
 
-                int[] imagenes = {
-                        R.drawable.imagen1,
-                        R.drawable.imagen2,
-                        R.drawable.imagen3
-                };
 
-                // Insertar cápsulas con imágenes específicas
-                for (int i = 0; i < capsulas.size(); i++) {
-                    Capsula capsula = capsulas.get(i);
-                    long id = db.capsulaDao().insertarCapsula(capsula);
+        EditText etCorreo = dialogView.findViewById(R.id.etCorreo);
+        EditText etContrasena = dialogView.findViewById(R.id.etContrasena);
+        Button btnRegistro = dialogView.findViewById(R.id.btnRegistro);
 
-                    List<Integer> imagenesCapsula = new ArrayList<>();
-                    switch (i) {
-                        case 0:
-                            imagenesCapsula.add(imagenes[0]);
-                            imagenesCapsula.add(imagenes[1]);
-                            break;
-                        case 1:
-                            imagenesCapsula.add(imagenes[2]);
-                            imagenesCapsula.add(imagenes[1]);
-                            break;
-                        case 2:
-                            imagenesCapsula.add(imagenes[1]);
-                            imagenesCapsula.add(imagenes[0]);
-                            imagenesCapsula.add(imagenes[2]);
-                            break;
+        builder.setView(dialogView)
+                .setTitle("Iniciar Sesión")
+                .setPositiveButton("Login", (dialog, which) -> {
+                    String correo = etCorreo.getText().toString().trim();
+                    String contrasena = etContrasena.getText().toString().trim();
+
+                    if (!correo.isEmpty() && !contrasena.isEmpty()) {
+                        UsuariosWebService.loginUsuario(
+                                requireContext(),
+                                correo,
+                                contrasena,
+                                () -> {
+                                    if (isAdded()) {
+                                        checkLoginState();
+                                        Toast.makeText(requireContext(), "Login exitoso", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    } else {
+                        Toast.makeText(requireContext(), "Ingrese todos los campos", Toast.LENGTH_SHORT).show();
                     }
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
 
-                    // Insertar imágenes
-                    String packageName = requireContext().getPackageName();
-                    for (int imagenRes : imagenesCapsula) {
-                        String imageUri = "android.resource://" + packageName + "/" + imagenRes;
-                        db.capsulaDao().insertarImagen(new Imagen((int) id, imageUri));
+        AlertDialog dialog = builder.create();
+
+        // Acción para el botón de registro
+        btnRegistro.setOnClickListener(v -> {
+            dialog.dismiss();
+            mostrarDialogoRegistro();
+        });
+
+        dialog.show();
+    }
+
+
+    private void mostrarDialogoRegistro() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_register, null);
+
+        EditText etNombre = dialogView.findViewById(R.id.etNombre);
+        EditText etCorreo = dialogView.findViewById(R.id.etCorreo);
+        EditText etContrasena = dialogView.findViewById(R.id.etContrasena);
+
+        builder.setView(dialogView)
+                .setTitle("Crear Cuenta")
+                .setPositiveButton("Registrar", (dialog, which) -> {
+                    String nombre = etNombre.getText().toString().trim();
+                    String correo = etCorreo.getText().toString().trim();
+                    String contrasena = etContrasena.getText().toString().trim();
+
+                    if (!nombre.isEmpty() && !correo.isEmpty() && !contrasena.isEmpty()) {
+                        registrarUsuario(nombre, correo, contrasena);
+                    } else {
+                        Toast.makeText(requireContext(), "Completa todos los campos", Toast.LENGTH_SHORT).show();
                     }
-                }
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
 
+        builder.create().show();
+    }
+
+    private void registrarUsuario(String nombre, String correo, String contrasena) {
+        UsuariosWebService.registrarUsuario(nombre, correo, contrasena, new UsuariosWebService.RegistroCallback() {
+            @Override
+            public void onExito(String mensaje) {
                 requireActivity().runOnUiThread(() -> {
-                    actualizarListaCapsulas();
-                    Toast.makeText(requireContext(), "Datos de ejemplo cargados", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show();
+                    mostrarDialogoLogin(); // Vuelve al login después del registro
                 });
+            }
 
-            } catch (Exception e) {
-                Log.e("HomeFragment", "Error insertando datos: " + e.getMessage());
+            @Override
+            public void onError(String error) {
+                requireActivity().runOnUiThread(() ->
+                        Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show());
             }
         });
     }
+
 
     /**
      * Aqui se muestra el dialog para agregar capsula si se ha movido la pantalla es decir se ha tumbado
@@ -363,16 +400,39 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         }
 
         if (!validarCampos(etTitulo, etDescripcion)) return false;
-
-        guardarCapsulaConImagenes(
+        SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+        int usuarioId = prefs.getInt("usuario_id", -1);
+        CapsulasWebService.crearCapsula(
+                requireContext(),
+                usuarioId,
+                imagenAdapter.getImagenes(),
                 etTitulo.getText().toString(),
                 etDescripcion.getText().toString(),
-                currentLat,
-                currentLon,
-                imagenAdapter.getImagenes()
+                currentLat.toString(),
+                currentLon.toString(),
+                new CapsulasWebService.CapsulasCallback() {
+                    @Override
+                    public void onSuccess(List<ImagenCapsulaRelation> capsulasConImagenes) {
+                    }
+                    @Override
+                    public void onSuccess(int capsulaId) {
+                        requireActivity().runOnUiThread(() -> {
+                            Toast.makeText(requireContext(), "Cápsula creada con ID: " + capsulaId, Toast.LENGTH_SHORT).show();
+                            // Aquí podrías reiniciar el formulario, volver atrás, etc.
+                        });
+                    }
+                    @Override
+                    public void onError(String mensaje) {
+                        requireActivity().runOnUiThread(() -> {
+                            Toast.makeText(requireContext(), "Error: " + mensaje, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                }
         );
         return true;
     }
+
+
 
     private void verificarPermisosArchivos() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -494,7 +554,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         }
         // Manejar actualización de cápsula
         else if (requestCode == REQUEST_CODE_EDITAR_CAPSULA && resultCode == Activity.RESULT_OK && data != null) {
-            actualizarListaCapsulas();
+            // actualizarListaCapsulas();
         }
     }
 
@@ -508,28 +568,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
      * Guardar una nueva cápsula en la base de datos.
      * Se ejecuta en un hilo secundario para evitar bloqueos en la interfaz de usuario.
      */
-    private void guardarCapsulaConImagenes(String titulo, String descripcion, double latitud,
-                                           double longitud, List<Uri> imagenes) {
-        try {
 
-            // 1. Guardar cápsula
-            Capsula nuevaCapsula = new Capsula(titulo, descripcion, latitud, longitud);
-            long capsulaId = db.capsulaDao().insertarCapsula(nuevaCapsula);
-
-            // 2. Guardar imágenes relacionadas
-            for (Uri uri : imagenes) {
-                Imagen imagen = new Imagen((int) capsulaId, uri.toString());
-                db.capsulaDao().insertarImagen(imagen);
-            }
-
-            actualizarListaCapsulas();
-            mostrarNotificacionConfirmacion(titulo);
-            Toast.makeText(requireContext(), "Cápsula guardada exitosamente", Toast.LENGTH_SHORT).show();
-
-        } catch (NumberFormatException e) {
-            Toast.makeText(requireContext(), "Error en formato numérico", Toast.LENGTH_SHORT).show();
-        }
-    }
 
     /**
      * Pushea la notificacion de capsula agregada
@@ -575,12 +614,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
      * Actualizar la lista de cápsulas desde la base de datos
      * y notificar al adaptador de los cambios.
      */
-    private void actualizarListaCapsulas() {
-        listaCapsulas = db.capsulaDao().obtenerTodasCapsulasConImagenes();
-        if (adapter != null) {
-            adapter.actualizarDatos(listaCapsulas);
-        }
-    }
+
 
     /**
      *Para cuando hacemos click en una cápsula
@@ -599,9 +633,6 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         super.onDestroyView();
         if (mapView != null) {
             mapView.onDestroy();
-        }
-        if (db != null) {
-            db.close();
         }
     }
 }

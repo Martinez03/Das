@@ -112,7 +112,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         List<Uri> images = new ArrayList<>();
         if (imagenes != null) {
             for (Imagen uriString : imagenes) {
-                images.add(Uri.parse(uriString.getUrl()));
+               // images.add(Uri.parse(uriString.getUrl()));
             }
         }
 
@@ -173,7 +173,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         // Obtener URLs de imágenes si es necesario
         List<Imagen> imagenes = db.capsulaDao().obtenerImagenesPorCapsula(capsula.getId());
         for (Imagen imagen : imagenes) {
-            contenido.append("- ").append(imagen.getUrl()).append("\n");
+            //contenido.append("- ").append(imagen.getUrl()).append("\n");
         }
 
         // Guardar el archivo en la carpeta de descargas
