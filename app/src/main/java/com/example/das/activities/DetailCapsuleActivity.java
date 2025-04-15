@@ -74,10 +74,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        db = Room.databaseBuilder(this, AppDatabase.class, "geocapsula_db")
-                .allowMainThreadQueries()
-                .fallbackToDestructiveMigration()
-                .build();
+
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail_capsule);
@@ -109,12 +106,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
 
         // Obtener imágenes y otros datos del Intent
         imagenes = (List<Imagen>) getIntent().getSerializableExtra("imagenes");
-        List<Imagen> images = new ArrayList<>();
-        if (imagenes != null) {
-            for (Imagen uriString : imagenes) {
-               // images.add(Uri.parse(uriString.getUrl()));
-            }
-        }
+
 
         latitude = capsula.getLatitud();
         longitude = capsula.getLongitud();
@@ -122,7 +114,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         // Configurar RecyclerView con las imágenes
         RecyclerView rvImagenes = findViewById(R.id.rvImagenes);
         ImagenAdapter adapter = new ImagenAdapter();
-        adapter.agregarImagenes(images);
+        adapter.agregarImagenes(imagenes);
         rvImagenes.setAdapter(adapter);
         rvImagenes.setLayoutManager(new LinearLayoutManager(
                 this,
@@ -169,12 +161,6 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
                 .append("Descripción: ").append(capsula.getDescripcion()).append("\n")
                 .append("Coordenadas: ").append(capsula.getLatitud()).append(", ").append(capsula.getLongitud()).append("\n")
                 .append("Imágenes:\n");
-
-        // Obtener URLs de imágenes si es necesario
-        List<Imagen> imagenes = db.capsulaDao().obtenerImagenesPorCapsula(capsula.getId());
-        for (Imagen imagen : imagenes) {
-            //contenido.append("- ").append(imagen.getUrl()).append("\n");
-        }
 
         // Guardar el archivo en la carpeta de descargas
         guardarArchivoEnDescargas(nombreArchivo, contenido.toString());

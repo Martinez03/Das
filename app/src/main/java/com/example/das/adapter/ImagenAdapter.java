@@ -1,5 +1,7 @@
 package com.example.das.adapter;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,15 +35,14 @@ public class ImagenAdapter extends RecyclerView.Adapter<ImagenAdapter.ViewHolder
             return new ViewHolder(view);
         }
 
-        @Override
-        public void onBindViewHolder(@NonNull ViewHolder holder, int position){
-            Imagen imagen = imagenes.get(position);
+    @Override
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        Imagen imagen = imagenes.get(position);
+        byte[] imageBytes = imagen.getFoto();
+        Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length); // Convertir a Bitmap
+        holder.imageView.setImageBitmap(bitmap);
+    }
 
-            // Cargar desde byte[] usando Glide
-            Glide.with(holder.itemView.getContext())
-                    .load(imagen.getFoto()) // Glide soporta byte[] directamente
-                    .into(holder.imageView);
-        }
 
     @Override
     public int getItemCount() {
