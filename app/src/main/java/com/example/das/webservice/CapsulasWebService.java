@@ -12,6 +12,7 @@ import com.example.das.data.entity.Imagen;
 import com.example.das.data.entity.ImagenCapsulaRelation;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -20,8 +21,10 @@ import java.io.DataOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -86,9 +89,18 @@ public class CapsulasWebService {
 
                     dataOutputStream.writeBytes("--" + boundary + "--\r\n");
                 }
-
                 handleResponse(connection, response -> {
-                    // Manejo de respuesta (igual que antes)
+                    try {
+                        JSONObject jsonResponse = new JSONObject(response);
+                        if (jsonResponse.getBoolean("success")) {
+                            int capsulaId = jsonResponse.getInt("capsula_id");
+                            callback.onSuccess(capsulaId); // Llamar al callback correcto
+                        } else {
+                            callback.onError(jsonResponse.getString("message"));
+                        }
+                    } catch (JSONException e) {
+                        callback.onError("Error en formato de respuesta");
+                    }
                 }, callback);
 
             } catch (Exception e) {
@@ -105,7 +117,7 @@ public class CapsulasWebService {
             HttpURLConnection connection = null;
             try {
                 Uri.Builder uriBuilder = Uri.parse(BASE_URL).buildUpon()
-                        .appendQueryParameter("action", "listar_por_usuario") // ojo: era "accion", no "action"
+                        .appendQueryParameter("action", "listar_por_usuario")
                         .appendQueryParameter("usuario_id", String.valueOf(usuarioId));
 
                 URL url = new URL(uriBuilder.build().toString());
@@ -147,7 +159,7 @@ public class CapsulasWebService {
                                 }
 
                                 Capsula capsula = new Capsula(titulo,descripcion,latitud,longitud);
-                                // Crear relación
+                                capsula.setId(id);
                                 ImagenCapsulaRelation relacion = new ImagenCapsulaRelation();
                                 relacion.capsula = capsula;
                                 relacion.imagenes = imagenes;
@@ -178,30 +190,36 @@ public class CapsulasWebService {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                Uri.Builder params = new Uri.Builder()
-                        .appendQueryParameter("action", "eliminar_capsula")
-                        .appendQueryParameter("capsula_id", String.valueOf(capsulaId));
+                // URL con el parámetro de acción
+                Uri.Builder uriBuilder = Uri.parse(BASE_URL).buildUpon()
+                        .appendQueryParameter("action", "eliminar_capsula");
 
-                URL url = new URL(BASE_URL);
+                URL url = new URL(uriBuilder.build().toString());
                 connection = (HttpURLConnection) url.openConnection();
+                String parametros = "capsula_id=" + URLEncoder.encode(String.valueOf(capsulaId), "UTF-8");
+
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
-                try (OutputStream os = connection.getOutputStream()) {
-                    os.write(params.build().getEncodedQuery().getBytes("UTF-8"));
-                }
-
-                handleResponse(connection, response -> {
-                    JSONObject jsonResponse = new JSONObject(response);
-                    if (jsonResponse.getBoolean("success")) {
-                        callback.onSuccessLista(new ArrayList<>());
-                    } else {
-                        callback.onError(jsonResponse.getString("message"));
+                PrintWriter out = new PrintWriter(connection.getOutputStream());
+                out.print(parametros);
+                out.close();
+                 handleResponse(connection, response -> {
+                    try {
+                        JSONObject jsonResponse = new JSONObject(response);
+                        if (jsonResponse.getBoolean("success")) {
+                            callback.onSuccess(capsulaId);
+                        } else {
+                            callback.onError(jsonResponse.getString("message"));
+                        }
+                    } catch (Exception e) {
+                        callback.onError("Error al procesar la respuesta");
                     }
                 }, callback);
 
             } catch (Exception e) {
-                Log.e(TAG, "Error eliminar cápsula: " + e.getMessage());
+                Log.e(TAG, "Error al eliminar cápsula: " + e.getMessage());
                 callback.onError("Error de conexión");
             } finally {
                 if (connection != null) connection.disconnect();
@@ -209,30 +227,35 @@ public class CapsulasWebService {
         }).start();
     }
 
+
     // Editar cápsula
     public static void editarCapsula(Capsula capsula, CapsulasCallback callback) {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                Uri.Builder params = new Uri.Builder()
-                        .appendQueryParameter("action", "editar_capsula")
-                        .appendQueryParameter("capsula_id", String.valueOf(capsula.getId()))
-                        .appendQueryParameter("titulo", capsula.getTitulo())
-                        .appendQueryParameter("descripcion", capsula.getDescripcion());
-
-                URL url = new URL(BASE_URL);
+                Uri.Builder uriBuilder = Uri.parse(BASE_URL).buildUpon()
+                        .appendQueryParameter("action", "editar_capsula");
+                URL url = new URL(uriBuilder.build().toString());
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
-                try (OutputStream os = connection.getOutputStream()) {
-                    os.write(params.build().getEncodedQuery().getBytes("UTF-8"));
+                // Construimos los parámetros manualmente
+                String parametros = "&capsula_id=" + URLEncoder.encode(String.valueOf(capsula.getId()), "UTF-8") +
+                        "&titulo=" + URLEncoder.encode(capsula.getTitulo(), "UTF-8") +
+                        "&descripcion=" + URLEncoder.encode(capsula.getDescripcion(), "UTF-8");
+
+                // Enviamos con PrintWriter como pediste
+                try (PrintWriter out = new PrintWriter(connection.getOutputStream())) {
+                    out.print(parametros);
+                    out.close();
                 }
 
                 handleResponse(connection, response -> {
                     JSONObject jsonResponse = new JSONObject(response);
                     if (jsonResponse.getBoolean("success")) {
-                        callback.onSuccessLista(new ArrayList<>());
+                        callback.onSuccessLista(new ArrayList<>()); // Lista vacía por convención
                     } else {
                         callback.onError(jsonResponse.getString("message"));
                     }

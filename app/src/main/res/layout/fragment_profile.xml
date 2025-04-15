@@ -6,76 +6,95 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Contenido principal -->
+    <!-- Contenido principal - Toolbar siempre visible -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- Toolbar -->
+        <!-- Toolbar (siempre visible) -->
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
             android:elevation="0dp"
-            app:title="@string/navigation_drawer_open" />
+            app:title="Perfil" />
 
-        <!-- Contenedor para centrar el perfil -->
-        <LinearLayout
+        <!-- Contenido dinámico debajo del Toolbar -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
+            android:layout_height="match_parent">
 
-            <!-- Imagen de perfil -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                app:cardCornerRadius="60dp"
-                app:strokeColor="@android:color/white"
-                app:strokeWidth="0dp"
-                android:elevation="0dp">
+            <!-- Estado NO logueado -->
+            <LinearLayout
+                android:id="@+id/layout_no_login"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical">
 
-                <ImageView
-                    android:id="@+id/profile_image"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/account_circle_24px"
-                    android:contentDescription="Foto de perfil"
-                    app:tint="?attr/colorOnSurface" />
-            </com.google.android.material.card.MaterialCardView>
+                <Button
+                    android:id="@+id/btnLogin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Iniciar Sesión"
+                    android:layout_margin="16dp"/>
+            </LinearLayout>
 
-            <!-- Nombre de usuario -->
-            <TextView
-                android:id="@+id/profile_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Usuario"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:layout_marginTop="16dp"/>
+            <!-- Estado logueado -->
+            <LinearLayout
+                android:id="@+id/layout_profile"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="gone">
 
-            <!-- Email -->
-            <TextView
-                android:id="@+id/profile_email"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="usuario@ejemplo.com"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="14sp"/>
-        </LinearLayout>
+                <!-- Contenido del perfil -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    app:cardCornerRadius="60dp">
+
+                    <ImageView
+                        android:id="@+id/profile_image"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/account_circle_24px" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:id="@+id/profile_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:textSize="18sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/profile_email"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textSize="14sp"/>
+
+                <Button
+                    android:id="@+id/btnLogout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:text="Cerrar Sesión"/>
+            </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 
-    <!-- Drawer de navegación -->
+    <!-- Navigation Drawer -->
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/nav_drawer"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         app:menu="@menu/menu_drawer" />
-
 </androidx.drawerlayout.widget.DrawerLayout>

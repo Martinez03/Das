@@ -32,6 +32,8 @@ import com.example.das.adapter.ImagenAdapter;
 import com.example.das.data.database.AppDatabase;
 import com.example.das.data.entity.Capsula;
 import com.example.das.data.entity.Imagen;
+import com.example.das.data.entity.ImagenCapsulaRelation;
+import com.example.das.webservice.CapsulasWebService;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
@@ -40,9 +42,11 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.appbar.MaterialToolbar;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +66,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
     private boolean isEditDialogShowing = false;
     private String savedEditTitle = null;
     private String savedEditDescription = null;
+    private List<Uri> imagenUris;
 
 
     private androidx.appcompat.widget.AppCompatTextView tvCapsuleTitle;
@@ -105,11 +110,25 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         }
 
         // Obtener imágenes y otros datos del Intent
-        imagenes = (List<Imagen>) getIntent().getSerializableExtra("imagenes");
+        imagenUris = getIntent().getParcelableArrayListExtra("imagenUris");
 
 
         latitude = capsula.getLatitud();
         longitude = capsula.getLongitud();
+
+        List<Uri> imagenUris = getIntent().getParcelableArrayListExtra("imagenUris");
+
+        imagenes = new ArrayList<>();
+        for (Uri uri : imagenUris) {
+            try {
+                InputStream inputStream = getContentResolver().openInputStream(uri);
+                byte[] blob = leerBytesDesdeInputStream(inputStream);
+                Imagen imagen = new Imagen(capsula.getId(),blob);
+                imagenes.add(imagen);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
         // Configurar RecyclerView con las imágenes
         RecyclerView rvImagenes = findViewById(R.id.rvImagenes);
@@ -134,6 +153,20 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
             showEditDialog(savedEditTitle, savedEditDescription);
         }
     }
+
+    private byte[] leerBytesDesdeInputStream(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
+        int bufferSize = 1024;
+        byte[] buffer = new byte[bufferSize];
+
+        int len;
+        while ((len = inputStream.read(buffer)) != -1) {
+            byteBuffer.write(buffer, 0, len);
+        }
+        inputStream.close();
+        return byteBuffer.toByteArray();
+    }
+
 
     /**
      *
@@ -214,17 +247,31 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
      * Se elimina la capsula de la base de datos
      */
     private void eliminarCapsula() {
-        new Thread(() -> {
-            db.capsulaDao().eliminarCapsula(capsula);
-            runOnUiThread(() -> {
-                Toast.makeText(this, "Cápsula eliminada", Toast.LENGTH_SHORT).show();
-                Intent resultIntent = new Intent();
-                resultIntent.putExtra("capsulaActualizada", capsula);
-                setResult(RESULT_OK, resultIntent);
-                finish();
-            });
-        }).start();
+
+        Toast.makeText(DetailCapsuleActivity.this, "Cápsula eliminada", capsula.getId()).show();
+        CapsulasWebService.eliminarCapsula(capsula.getId(), new CapsulasWebService.CapsulasCallback() {
+            @Override
+            public void onSuccessLista(List<ImagenCapsulaRelation> capsulasConImagenes) {
+            }
+            @Override
+            public void onSuccess(int capsulaId) {
+                runOnUiThread(() -> {
+                    Toast.makeText(DetailCapsuleActivity.this, "Cápsula eliminada", Toast.LENGTH_SHORT).show();
+                    Intent resultIntent = new Intent();
+                    resultIntent.putExtra("capsulaEliminadaId", capsulaId);
+                    setResult(RESULT_OK, resultIntent);
+                    finish();
+                });
+            }
+            @Override
+            public void onError(String errorMessage) {
+                runOnUiThread(() ->
+                        Toast.makeText(DetailCapsuleActivity.this, "Error al eliminar: " + errorMessage, Toast.LENGTH_LONG).show()
+                );
+            }
+        });
     }
+
 
 
     /**
@@ -257,7 +304,6 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
         final EditText etEditTitle = dialogView.findViewById(R.id.etEditTitle);
         final EditText etEditDescription = dialogView.findViewById(R.id.etEditDescription);
 
-        // Asigna los valores iniciales: si se pasan desde el estado guardado, se usan; de lo contrario, se usan los actuales
         if (initialTitle != null) {
             etEditTitle.setText(initialTitle);
         } else {
@@ -287,17 +333,33 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
                         capsula.setTitulo(capsuleTitle);
                         capsula.setDescripcion(capsuleDescription);
 
-                        new Thread(() -> {
-                            db.capsulaDao().actualizarCapsula(capsula);
-                            runOnUiThread(() -> {
-                                Toast.makeText(this, "Cápsula actualizada", Toast.LENGTH_SHORT).show();
+                        // Llamada al servicio en lugar de Room
+                        CapsulasWebService.editarCapsula(capsula, new CapsulasWebService.CapsulasCallback() {
+                            @Override
+                            public void onSuccessLista(List<ImagenCapsulaRelation> capsulasConImagenes) {
+                                runOnUiThread(() -> {
+                                    Toast.makeText(DetailCapsuleActivity.this, "Cápsula actualizada", Toast.LENGTH_SHORT).show();
 
-                                // Devolver los datos actualizados a la actividad anterior
-                                Intent resultIntent = new Intent();
-                                resultIntent.putExtra("capsulaActualizada", capsula);
-                                setResult(RESULT_OK, resultIntent);
-                            });
-                        }).start();
+                                    // Devolver datos a la actividad anterior
+                                    Intent resultIntent = new Intent();
+                                    resultIntent.putExtra("capsulaActualizada", capsula);
+                                    setResult(RESULT_OK, resultIntent);
+                                });
+                            }
+
+                            @Override
+                            public void onSuccess(int capsulaId) {
+
+                            }
+
+                            @Override
+                            public void onError(String mensaje) {
+                                runOnUiThread(() -> {
+                                    Toast.makeText(DetailCapsuleActivity.this, "Error: " + mensaje, Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        });
+
                     } else {
                         Toast.makeText(this, "El título no puede estar vacío", Toast.LENGTH_SHORT).show();
                     }
@@ -305,12 +367,12 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
                 .setNegativeButton("Cancelar", null)
                 .create();
 
-        // Cuando se cierre el diálogo, se actualiza la bandera
         editDialog.setOnDismissListener(dialog -> isEditDialogShowing = false);
 
         isEditDialogShowing = true;
         editDialog.show();
     }
+
 
 
     @Override

@@ -20,6 +20,7 @@ public class ImagenAdapter extends RecyclerView.Adapter<ImagenAdapter.ViewHolder
 
     private List<Imagen> imagenes = new ArrayList<>();
 
+
     // Cambiar parámetro a List<Imagen>
     public void agregarImagenes(List<Imagen> nuevasImagenes) {
         int startPosition = imagenes.size();
@@ -39,7 +40,7 @@ public class ImagenAdapter extends RecyclerView.Adapter<ImagenAdapter.ViewHolder
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Imagen imagen = imagenes.get(position);
         byte[] imageBytes = imagen.getFoto();
-        Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length); // Convertir a Bitmap
+        Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
         holder.imageView.setImageBitmap(bitmap);
     }
 

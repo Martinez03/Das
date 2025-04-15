@@ -31,6 +31,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -61,6 +62,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -416,29 +419,27 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
                 currentLon.toString(),
                 new CapsulasWebService.CapsulasCallback() {
                     @Override
-                    public void onSuccessLista(List<ImagenCapsulaRelation> capsulasConImagenes) {
-
-                    }
-
-                    @Override
                     public void onSuccess(int capsulaId) {
                         requireActivity().runOnUiThread(() -> {
-                            Toast.makeText(requireContext(), "Cápsula creada con ID: " + capsulaId, Toast.LENGTH_SHORT).show();
+                            Toast.makeText(requireContext(), "Cápsula creada exitosamente", Toast.LENGTH_SHORT).show();
                             mostrarNotificacionConfirmacion(etTitulo.getText().toString());
+                            actualizarListaCapsulas();
                         });
                     }
+
                     @Override
                     public void onError(String mensaje) {
-                        requireActivity().runOnUiThread(() -> {
-                            Toast.makeText(requireContext(), "Error: " + mensaje, Toast.LENGTH_LONG).show();
-                        });
+                        requireActivity().runOnUiThread(() ->
+                                Toast.makeText(requireContext(), "Error: " + mensaje, Toast.LENGTH_LONG).show()
+                        );
                     }
+
+                    @Override
+                    public void onSuccessLista(List<ImagenCapsulaRelation> capsulasConImagenes) {}
                 }
         );
         return true;
     }
-
-
 
     private void verificarPermisosArchivos() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -671,11 +672,36 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
      */
     @Override
     public void onCapsulaClick(List<Imagen> imagenes, Capsula capsula) {
+        ArrayList<Uri> imagenUris = guardarBlobsYObtenerUris(getActivity(), imagenes);
         Intent intent = new Intent(getActivity(), DetailCapsuleActivity.class);
-        intent.putExtra("imagenes", new ArrayList<>(imagenes));
+        intent.putParcelableArrayListExtra("imagenUris", imagenUris);
         intent.putExtra("capsula", capsula);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivityForResult(intent, REQUEST_CODE_EDITAR_CAPSULA);
     }
+
+
+    private ArrayList<Uri> guardarBlobsYObtenerUris(Context context, List<Imagen> imagenes) {
+        ArrayList<Uri> uris = new ArrayList<>();
+
+        for (int i = 0; i < imagenes.size(); i++) {
+            Imagen imagen = imagenes.get(i);
+            try {
+                File archivoTemporal = new File(context.getCacheDir(), "imagen_" + i + ".jpg");
+                try (FileOutputStream fos = new FileOutputStream(archivoTemporal)) {
+                    fos.write(imagen.getFoto());
+                }
+
+                Uri uri = FileProvider.getUriForFile(context, "com.example.das.fileprovider", archivoTemporal);
+                uris.add(uri);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return uris;
+    }
+
 
 
     @Override

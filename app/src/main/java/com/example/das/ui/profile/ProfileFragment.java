@@ -2,6 +2,7 @@ package com.example.das.ui.profile;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -10,23 +11,33 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.example.das.LocationService;
 import com.example.das.R;
 import com.example.das.databinding.FragmentProfileBinding;
+import com.example.das.webservice.UsuariosWebService;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
 
+import java.util.ArrayList;
 import java.util.Locale;
 
 import androidx.appcompat.app.AppCompatDelegate;
@@ -38,14 +49,60 @@ public class ProfileFragment extends Fragment {
     private DrawerLayout drawerLayout;
     private ActionBarDrawerToggle drawerToggle;
 
+    private SharedPreferences prefs;
+
+    private Button btnLogin, btnLogout;;
+    private LinearLayout layoutProfile, layoutNoLogin;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+    }
+
+    @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
-
         binding = FragmentProfileBinding.inflate(inflater, container, false);
         View root = binding.getRoot();
         setupToolbarAndDrawer(root);
+        btnLogin = root.findViewById(R.id.btnLogin);
+        btnLogout = root.findViewById(R.id.btnLogout);
+        layoutProfile = root.findViewById(R.id.layout_profile);
+        layoutNoLogin = root.findViewById(R.id.layout_no_login);
+        prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+        btnLogin.setOnClickListener(v -> mostrarDialogoLogin());
+        btnLogout.setOnClickListener(v -> cerrarSesion());
+        checkLoginState();
         return root;
     }
+
+    private void checkLoginState() {
+        boolean isLoggedIn = prefs.contains("usuario_id");
+
+        if (isLoggedIn) {
+            // Mostrar perfil y ocultar botón de login
+            layoutProfile.setVisibility(View.VISIBLE);
+            layoutNoLogin.setVisibility(View.GONE);
+            cargarDatosUsuario();
+        } else {
+            // Mostrar solo botón de login
+            layoutProfile.setVisibility(View.GONE);
+            layoutNoLogin.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void cargarDatosUsuario() {
+        View view = getView();
+        if (view != null) {
+            TextView tvNombre = view.findViewById(R.id.profile_name);
+            TextView tvEmail = view.findViewById(R.id.profile_email);
+
+            tvNombre.setText("SS");
+            tvEmail.setText("SS");
+        }
+    }
+
 
 
     //Preparamos el toolbar y el drawer
@@ -80,6 +137,7 @@ public class ProfileFragment extends Fragment {
             return true;
         });
     }
+
 
     //En el menu de navegacion cambiamos el idioma o el tema
     private void handleNavigationItemSelected(MenuItem item) {
@@ -154,6 +212,102 @@ public class ProfileFragment extends Fragment {
             }
         }
     }
+
+    private void mostrarDialogoLogin() {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(requireContext());
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_login, null);
+
+
+        EditText etCorreo = dialogView.findViewById(R.id.etCorreo);
+        EditText etContrasena = dialogView.findViewById(R.id.etContrasena);
+        Button btnRegistro = dialogView.findViewById(R.id.btnRegistro);
+
+        builder.setView(dialogView)
+                .setTitle("Iniciar Sesión")
+                .setPositiveButton("Login", (dialog, which) -> {
+                    String correo = etCorreo.getText().toString().trim();
+                    String contrasena = etContrasena.getText().toString().trim();
+
+                    if (!correo.isEmpty() && !contrasena.isEmpty()) {
+                        UsuariosWebService.loginUsuario(
+                                requireContext(),
+                                correo,
+                                contrasena,
+                                () -> {
+                                    if (isAdded()) {
+                                        checkLoginState();
+                                        Toast.makeText(requireContext(), "Login exitoso", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    } else {
+                        Toast.makeText(requireContext(), "Ingrese todos los campos", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
+
+        android.app.AlertDialog dialog = builder.create();
+
+        // Acción para el botón de registro
+        btnRegistro.setOnClickListener(v -> {
+            dialog.dismiss();
+            mostrarDialogoRegistro();
+        });
+
+        dialog.show();
+    }
+
+
+    private void mostrarDialogoRegistro() {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(requireContext());
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_register, null);
+
+        EditText etNombre = dialogView.findViewById(R.id.etNombre);
+        EditText etCorreo = dialogView.findViewById(R.id.etCorreo);
+        EditText etContrasena = dialogView.findViewById(R.id.etContrasena);
+
+        builder.setView(dialogView)
+                .setTitle("Crear Cuenta")
+                .setPositiveButton("Registrar", (dialog, which) -> {
+                    String nombre = etNombre.getText().toString().trim();
+                    String correo = etCorreo.getText().toString().trim();
+                    String contrasena = etContrasena.getText().toString().trim();
+
+                    if (!nombre.isEmpty() && !correo.isEmpty() && !contrasena.isEmpty()) {
+                        registrarUsuario(nombre, correo, contrasena);
+                    } else {
+                        Toast.makeText(requireContext(), "Completa todos los campos", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancelar", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
+    }
+
+    private void registrarUsuario(String nombre, String correo, String contrasena) {
+        UsuariosWebService.registrarUsuario(nombre, correo, contrasena, new UsuariosWebService.RegistroCallback() {
+            @Override
+            public void onExito(String mensaje) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show();
+                    mostrarDialogoLogin();
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                requireActivity().runOnUiThread(() ->
+                        Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void cerrarSesion() {
+        prefs.edit().clear().apply();
+        Toast.makeText(requireContext(), "Sesión cerrada", Toast.LENGTH_SHORT).show();
+        checkLoginState();
+    }
+
+
 
     @Override
     public void onDestroyView() {
