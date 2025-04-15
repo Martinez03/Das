@@ -32,14 +32,14 @@ public class CapsulasWebService {
     private static final String TAG = "CapsulasWebService";
 
     public interface CapsulasCallback {
-        void onSuccess(List<ImagenCapsulaRelation> capsulasConImagenes);
+        void onSuccessLista(List<ImagenCapsulaRelation> capsulasConImagenes);
         void onSuccess(int capsulaId);
         void onError(String mensaje);
     }
 
     // Crear cápsula con imágenes
     public static void crearCapsula(Context context, int usuarioId,
-                                    List<Uri> imagenesUris, String titulo, String descripcion,
+                                    List<Imagen> imagenes, String titulo, String descripcion,
                                     String latitud, String longitud, CapsulasCallback callback) {
         new Thread(() -> {
             HttpURLConnection connection = null;
@@ -65,19 +65,19 @@ public class CapsulasWebService {
                     writeMultipartField(dataOutputStream, boundary, "usuario_id", String.valueOf(usuarioId));
 
                     // Subir imágenes como Base64
-                    if (imagenesUris != null && !imagenesUris.isEmpty()) {
-                        int i = 0;
-                        for (Uri uri : imagenesUris) {
-                            try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
-                                // Convertir a Bitmap y luego a Base64
-                                Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-                                ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream);
-                                String fotoBase64 = Base64.encodeToString(stream.toByteArray(), Base64.DEFAULT);
+                    if (imagenes != null && !imagenes.isEmpty()) {
+                        for (Imagen imagen : imagenes) {
+                            try {
+                                // Convertir directamente desde el byte[]
+                                String fotoBase64 = Base64.encodeToString(imagen.getFoto(), Base64.NO_WRAP);
 
-                                // Campos para cada imagen
+                                // Optimizar compresión
+                                Bitmap bitmap = BitmapFactory.decodeByteArray(imagen.getFoto(), 0, imagen.getFoto().length);
+                                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                                bitmap.compress(Bitmap.CompressFormat.WEBP, 85, stream); // Mejor formato y compresión
+                                fotoBase64 = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP);
+
                                 writeMultipartField(dataOutputStream, boundary, "imagen[]", fotoBase64);
-                                i++;
                             } catch (Exception e) {
                                 Log.e(TAG, "Error procesando imagen: " + e.getMessage());
                             }
@@ -100,13 +100,12 @@ public class CapsulasWebService {
         }).start();
     }
 
-    // Obtener cápsulas con imágenes
     public static void obtenerCapsulasPorUsuario(int usuarioId, CapsulasCallback callback) {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
                 Uri.Builder uriBuilder = Uri.parse(BASE_URL).buildUpon()
-                        .appendQueryParameter("action", "listar_por_usuario")
+                        .appendQueryParameter("action", "listar_por_usuario") // ojo: era "accion", no "action"
                         .appendQueryParameter("usuario_id", String.valueOf(usuarioId));
 
                 URL url = new URL(uriBuilder.build().toString());
@@ -114,12 +113,54 @@ public class CapsulasWebService {
                 connection.setRequestMethod("GET");
 
                 handleResponse(connection, response -> {
-                    JSONObject jsonResponse = new JSONObject(response);
-                    if (jsonResponse.getBoolean("success")) {
-                        List<ImagenCapsulaRelation> relaciones = parseRelaciones(jsonResponse.getJSONArray("capsulas"));
-                        callback.onSuccess(relaciones);
-                    } else {
-                        callback.onError(jsonResponse.getString("message"));
+                    try {
+                        JSONObject jsonResponse = new JSONObject(response);
+                        if (jsonResponse.getBoolean("success")) {
+                            JSONArray capsulasArray = jsonResponse.getJSONArray("capsulas");
+                            List<ImagenCapsulaRelation> relaciones = new ArrayList<>();
+
+                            for (int i = 0; i < capsulasArray.length(); i++) {
+                                JSONObject capsulaObj = capsulasArray.getJSONObject(i);
+                                int id = capsulaObj.getInt("id");
+                                String titulo = capsulaObj.getString("titulo");
+                                String descripcion = capsulaObj.getString("descripcion");
+                                double latitud = capsulaObj.getDouble("latitud");
+                                double longitud = capsulaObj.getDouble("longitud");
+
+                                // Procesar imágenes
+                                // Crear lista para las imágenes de esta cápsula
+                                List<Imagen> imagenes = new ArrayList<>();
+
+                                // Obtener las imágenes de la cápsula
+                                JSONArray imagenesArray = capsulaObj.getJSONArray("imagenes");
+                                for (int j = 0; j < imagenesArray.length(); j++) {
+                                    String base64 = imagenesArray.getJSONObject(j).getString("imagen");
+                                    byte[] decodedBytes = Base64.decode(base64, Base64.DEFAULT);
+
+                                    // Crear objeto Imagen con byte[] (ya no necesitamos Bitmap)
+                                    Imagen imagen = new Imagen(id, decodedBytes);
+
+                                    // Agregar la imagen a la lista
+                                    if (decodedBytes != null) {
+                                        imagenes.add(imagen);
+                                    }
+                                }
+
+                                Capsula capsula = new Capsula(titulo,descripcion,latitud,longitud);
+                                // Crear relación
+                                ImagenCapsulaRelation relacion = new ImagenCapsulaRelation();
+                                relacion.capsula = capsula;
+                                relacion.imagenes = imagenes;
+                                relaciones.add(relacion);
+                            }
+
+                            callback.onSuccessLista(relaciones);
+                        } else {
+                            callback.onError(jsonResponse.getString("message"));
+                        }
+                    } catch (Exception e) {
+                        callback.onError("Error al procesar la respuesta");
+                        e.printStackTrace();
                     }
                 }, callback);
 
@@ -153,7 +194,7 @@ public class CapsulasWebService {
                 handleResponse(connection, response -> {
                     JSONObject jsonResponse = new JSONObject(response);
                     if (jsonResponse.getBoolean("success")) {
-                        callback.onSuccess(new ArrayList<>());
+                        callback.onSuccessLista(new ArrayList<>());
                     } else {
                         callback.onError(jsonResponse.getString("message"));
                     }
@@ -191,7 +232,7 @@ public class CapsulasWebService {
                 handleResponse(connection, response -> {
                     JSONObject jsonResponse = new JSONObject(response);
                     if (jsonResponse.getBoolean("success")) {
-                        callback.onSuccess(new ArrayList<>());
+                        callback.onSuccessLista(new ArrayList<>());
                     } else {
                         callback.onError(jsonResponse.getString("message"));
                     }

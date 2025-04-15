@@ -1,5 +1,7 @@
 package com.example.das.adapter;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -56,24 +58,23 @@ public class CapsulaAdapter extends RecyclerView.Adapter<CapsulaAdapter.ViewHold
         holder.txtTitulo.setText(capsula.getTitulo());
         holder.txtDescripcion.setText(capsula.getDescripcion());
 
-       // if (!imagenes.isEmpty()) {
-         //   Glide.with(holder.itemView.getContext())
-           //         .load(Uri.parse(imagenes.get(0).getUrl()))
-             //       .into(holder.imgPreview);
+        // Mostrar la primera imagen de la lista de imágenes
+        if (!imagenes.isEmpty()) {
+            byte[] imageBytes = imagenes.get(0).getFoto();
+            Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+            holder.imgPreview.setImageBitmap(bitmap);
         }
-       /* holder.itemView.setOnClickListener(v -> {
+
+        holder.itemView.setOnClickListener(v -> {
             if (capsula.getLatitud() != 0 && capsula.getLongitud() != 0) {
-                listener.onCapsulaClick(
-                        imagenes,
-                        capsula
-                );
+                listener.onCapsulaClick(imagenes, capsula);
             } else {
                 Toast.makeText(holder.itemView.getContext(),
                         "Ubicación no disponible",
                         Toast.LENGTH_SHORT).show();
             }
         });
-    }*/
+    }
 
     @Override
     public int getItemCount() {

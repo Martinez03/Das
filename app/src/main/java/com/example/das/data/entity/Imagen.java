@@ -23,7 +23,7 @@ public class Imagen implements Serializable {
     private String titulo;
 
     // Constructor
-    public Imagen(int capsulaId, byte[] foto, String titulo) {
+    public Imagen(int capsulaId, byte[] foto) {
         this.capsulaId = capsulaId;
         this.foto = foto;
     }

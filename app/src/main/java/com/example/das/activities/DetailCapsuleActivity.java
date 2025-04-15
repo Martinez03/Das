@@ -109,7 +109,7 @@ public class DetailCapsuleActivity extends AppCompatActivity implements OnMapRea
 
         // Obtener imágenes y otros datos del Intent
         imagenes = (List<Imagen>) getIntent().getSerializableExtra("imagenes");
-        List<Uri> images = new ArrayList<>();
+        List<Imagen> images = new ArrayList<>();
         if (imagenes != null) {
             for (Imagen uriString : imagenes) {
                // images.add(Uri.parse(uriString.getUrl()));

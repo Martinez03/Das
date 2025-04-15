@@ -60,6 +60,9 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -86,7 +89,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     private boolean isDialogShowing = false;
     private String savedTitulo;
     private String savedDescripcion;
-    private ArrayList<Uri> savedImagenes = new ArrayList<>();
+    private ArrayList<Imagen> savedImagenes = new ArrayList<>();
     private SharedPreferences prefs;
 
     private Button btnLogin;
@@ -114,7 +117,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             savedImagenes.clear();
             if (imagenesStrings != null) {
                 for (String uriString : imagenesStrings) {
-                    savedImagenes.add(Uri.parse(uriString));
+                  //  savedImagenes.add(Uri.parse(uriString));
                 }
             }
         }
@@ -193,12 +196,12 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
                 outState.putString("descripcion", etDescripcion.getText().toString());
             }
             if (imagenAdapter != null) {
-                List<Uri> imagenes = imagenAdapter.getImagenes();
+                List<Imagen> imagenes = imagenAdapter.getImagenes();
                 ArrayList<String> uris = new ArrayList<>();
-                for (Uri uri : imagenes) {
+        /*        for (Uri uri : imagenes) {
                     uris.add(uri.toString());
                 }
-                outState.putStringArrayList("imagenes", uris);
+                outState.putStringArrayList("imagenes", uris);*/
             }
             outState.putDouble("lat", currentLat);
             outState.putDouble("lon", currentLon);
@@ -215,6 +218,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             Intent serviceIntent = new Intent(requireContext(), LocationService.class);
             ContextCompat.startForegroundService(requireContext(), serviceIntent);
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
+            actualizarListaCapsulas();
         } else {
             btnLogin.setVisibility(View.VISIBLE);
             recyclerView.setVisibility(View.GONE);
@@ -298,7 +302,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             public void onExito(String mensaje) {
                 requireActivity().runOnUiThread(() -> {
                     Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show();
-                    mostrarDialogoLogin(); // Vuelve al login después del registro
+                    mostrarDialogoLogin();
                 });
             }
 
@@ -322,7 +326,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     /**
      * Aqui se muestra el dialog para agregar capsula
      */
-    private void mostrarDialogoAgregarCapsula(String titulo, String descripcion, List<Uri> imagenes) {
+    private void mostrarDialogoAgregarCapsula(String titulo, String descripcion, List<Imagen> imagenes) {
         obtenerUbicacionActual();
 
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
@@ -412,13 +416,15 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
                 currentLon.toString(),
                 new CapsulasWebService.CapsulasCallback() {
                     @Override
-                    public void onSuccess(List<ImagenCapsulaRelation> capsulasConImagenes) {
+                    public void onSuccessLista(List<ImagenCapsulaRelation> capsulasConImagenes) {
+
                     }
+
                     @Override
                     public void onSuccess(int capsulaId) {
                         requireActivity().runOnUiThread(() -> {
                             Toast.makeText(requireContext(), "Cápsula creada con ID: " + capsulaId, Toast.LENGTH_SHORT).show();
-                            // Aquí podrías reiniciar el formulario, volver atrás, etc.
+                            mostrarNotificacionConfirmacion(etTitulo.getText().toString());
                         });
                     }
                     @Override
@@ -535,26 +541,47 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
 
         // Manejar selección de imágenes
         if (requestCode == PICK_IMAGES_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
-            List<Uri> uris = new ArrayList<>();
+            List<Imagen> imagenes = new ArrayList<>();
 
-            if (data.getClipData() != null) {
-                ClipData clipData = data.getClipData();
-                for (int i = 0; i < clipData.getItemCount(); i++) {
-                    Uri uri = clipData.getItemAt(i).getUri();
-                    tomarPermisoUri(uri);
-                    uris.add(uri);
+            try {
+                // Manejar múltiples imágenes
+                if (data.getClipData() != null) {
+                    ClipData clipData = data.getClipData();
+                    for (int i = 0; i < clipData.getItemCount(); i++) {
+                        Uri uri = clipData.getItemAt(i).getUri();
+                        tomarPermisoUri(uri);
+                        byte[] bytes = uriToByteArray(uri);
+                        imagenes.add(new Imagen(0, bytes));
+                    }
                 }
-            } else if (data.getData() != null) {
-                Uri uri = data.getData();
-                tomarPermisoUri(uri);
-                uris.add(uri);
-            }
+                // Manejar imagen única
+                else if (data.getData() != null) {
+                    Uri uri = data.getData();
+                    tomarPermisoUri(uri);
+                    byte[] bytes = uriToByteArray(uri);
+                    imagenes.add(new Imagen(0, bytes));
+                }
 
-            imagenAdapter.agregarImagenes(uris);
+                imagenAdapter.agregarImagenes(imagenes);
+            } catch (IOException e) {
+            }
         }
         // Manejar actualización de cápsula
         else if (requestCode == REQUEST_CODE_EDITAR_CAPSULA && resultCode == Activity.RESULT_OK && data != null) {
-            // actualizarListaCapsulas();
+            actualizarListaCapsulas();
+        }
+    }
+
+    private byte[] uriToByteArray(Uri uri) throws IOException {
+        try (InputStream inputStream = getContext().getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream()) {
+
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = inputStream.read(buffer)) != -1) {
+                byteBuffer.write(buffer, 0, len);
+            }
+            return byteBuffer.toByteArray();
         }
     }
 
@@ -564,11 +591,6 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
         );
     }
-    /**
-     * Guardar una nueva cápsula en la base de datos.
-     * Se ejecuta en un hilo secundario para evitar bloqueos en la interfaz de usuario.
-     */
-
 
     /**
      * Pushea la notificacion de capsula agregada
@@ -614,7 +636,35 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
      * Actualizar la lista de cápsulas desde la base de datos
      * y notificar al adaptador de los cambios.
      */
+    private void actualizarListaCapsulas() {
+        // Llamamos al servicio para obtener las cápsulas
+        int usuarioId = prefs.getInt("usuario_id", -1);
+        CapsulasWebService.obtenerCapsulasPorUsuario(usuarioId,new CapsulasWebService.CapsulasCallback() {
+            @Override
+            public void onSuccessLista(List<ImagenCapsulaRelation> relaciones) {
+                requireActivity().runOnUiThread(() -> {
+                    listaCapsulas = relaciones;
+                    if (adapter != null) {
+                        adapter.actualizarDatos(listaCapsulas);
+                    }
+                });
+            }
+            @Override
+            public void onSuccess(int capsulaId) {
+                Log.d("Actualización", "Cápsula con ID: " + capsulaId + " procesada correctamente.");
+            }
 
+
+            @Override
+            public void onError(String message) {
+                // Manejo de errores
+                requireActivity().runOnUiThread(() ->
+                        Toast.makeText(getContext(), "Error al obtener las cápsulas: " + message, Toast.LENGTH_SHORT).show()
+                );
+
+            }
+        });
+    }
 
     /**
      *Para cuando hacemos click en una cápsula
