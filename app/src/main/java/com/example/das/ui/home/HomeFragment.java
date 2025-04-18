@@ -98,7 +98,11 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     private Button btnLogin;
     private FloatingActionButton fab;
 
-
+/***
+ *
+ * TODO CAMBIAR API KEY DE GOOGLE MAPS
+ *
+ */
 
     /**
      * Se encarga de inicializar servicios, restaurar estados previos y solicitar permisos.
