@@ -5,6 +5,8 @@ import android.Manifest;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -21,6 +23,7 @@ import com.example.das.activities.DetailCapsuleActivity;
 import com.example.das.data.entity.Capsula;
 import com.example.das.data.entity.ImagenCapsulaRelation;
 import com.example.das.webservice.CapsulasWebService;
+import com.example.das.widget.CapsulasWidgetProvider;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -162,6 +165,9 @@ public class LocationService extends Service {
             } else {
                 Log.e("Notificaciones", "Permiso de notificaciones denegado");
             }
+            Intent intentWidget = new Intent(CapsulasWidgetProvider.ACTION_ACTUALIZAR_WIDGET);
+            intentWidget.setPackage(getPackageName());
+            sendBroadcast(intentWidget);
         } catch (Exception e) {
             Log.e("Notificaciones", "Error al mostrar notificación: " + e.getMessage());
         }

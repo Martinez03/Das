@@ -8,9 +8,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +25,8 @@ import android.widget.ScrollView;
 import android.widget.Toast;
 import android.app.AlertDialog;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
@@ -72,6 +76,9 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaClickListener {
+    private ActivityResultLauncher<Intent> takePictureLauncher;
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 2002;
+
 
     private static final int PICK_IMAGES_REQUEST = 101;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
@@ -111,7 +118,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
-        solicitarPermisosIniciales();
+
 
         // Restaurar estado guardado
         if (savedInstanceState != null) {
@@ -147,6 +154,27 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
 
         adapter = new CapsulaAdapter(new ArrayList<>(), this);
         recyclerView.setAdapter(adapter);
+        takePictureLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Bundle extras = result.getData().getExtras();
+                        Bitmap imagen = (Bitmap) extras.get("data");
+
+
+                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                        imagen.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+                        byte[] bytes = stream.toByteArray();
+
+
+                        List<Imagen> imagenes = new ArrayList<>();
+                        imagenes.add(new Imagen(0, bytes));
+                        imagenAdapter.agregarImagenes(imagenes);
+
+                    } else {
+                        Log.d("Camara", "No se tomó foto");
+                    }
+                });
 
         return view;
     }
@@ -219,6 +247,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
     private void checkLoginState() {
         boolean isLoggedIn = prefs.contains("usuario_id");
         if (isLoggedIn) {
+            solicitarPermisosIniciales();
             btnLogin.setVisibility(View.GONE);
             recyclerView.setVisibility(View.VISIBLE);
             fab.setVisibility(View.VISIBLE);
@@ -346,6 +375,9 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         inicializarMapa();
 
         // Configurar imágenes
+        ImageView ivCamera = dialogView.findViewById(R.id.ivCamera);
+        ivCamera.setOnClickListener(v -> verificarPermisoCamara());
+
         RecyclerView rvImagenes = dialogView.findViewById(R.id.rvImagenes);
         rvImagenes.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
         imagenAdapter = new ImagenAdapter();
@@ -391,6 +423,23 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
 
         isDialogShowing = true;
     }
+
+    private void verificarPermisoCamara() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(requireActivity(),
+                    new String[]{Manifest.permission.CAMERA},
+                    CAMERA_PERMISSION_REQUEST_CODE);
+        } else {
+            lanzarCamara();
+        }
+    }
+
+    private void lanzarCamara() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        takePictureLauncher.launch(intent);
+    }
+
     /**
      * Inicializa el mapa que se muestra en el dialog
      */
@@ -471,6 +520,15 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
                 abrirSelectorImagenes();
             }
         }
+
+        else if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                lanzarCamara();
+            } else {
+                Toast.makeText(requireContext(), "Permiso de cámara denegado", Toast.LENGTH_SHORT).show();
+            }
+        }
+
     }
 
     /**
