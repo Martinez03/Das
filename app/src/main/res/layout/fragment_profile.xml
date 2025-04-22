@@ -40,6 +40,7 @@
                     android:layout_height="wrap_content"
                     android:text="Iniciar Sesión"
                     android:layout_margin="16dp"/>
+
             </LinearLayout>
 
             <!-- Estado logueado -->
@@ -86,6 +87,19 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
                     android:text="Cerrar Sesión"/>
+
+                <Button
+                    android:id="@+id/btnAlarm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:text="Programar alarma"
+                    android:backgroundTint="@color/purple_500"
+                    android:textColor="@android:color/white"
+                    android:padding="12dp"
+                    android:layout_gravity="center_horizontal"
+                    android:drawableLeft="@android:drawable/ic_lock_idle_alarm"
+                    android:drawablePadding="8dp"/>
             </LinearLayout>
         </FrameLayout>
     </LinearLayout>

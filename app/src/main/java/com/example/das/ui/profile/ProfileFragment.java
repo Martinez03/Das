@@ -1,12 +1,17 @@
 package com.example.das.ui.profile;
 
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -31,6 +36,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.example.das.LocationService;
 import com.example.das.R;
+import com.example.das.alarm.AlarmReceiver;
 import com.example.das.databinding.FragmentProfileBinding;
 import com.example.das.webservice.UsuariosWebService;
 import com.google.android.gms.location.LocationServices;
@@ -38,9 +44,15 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Locale;
 
 import androidx.appcompat.app.AppCompatDelegate;
+import com.example.das.alarm.AlarmReceiver;
+import java.util.Calendar;
+import android.app.AlarmManager;
+import android.content.Intent;
+import android.app.PendingIntent;
 
 
 public class ProfileFragment extends Fragment {
@@ -73,6 +85,28 @@ public class ProfileFragment extends Fragment {
         prefs = requireActivity().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
         btnLogin.setOnClickListener(v -> mostrarDialogoLogin());
         btnLogout.setOnClickListener(v -> cerrarSesion());
+        Button btnAlarm = root.findViewById(R.id.btnAlarm);
+        btnAlarm.setOnClickListener(v -> {
+            Calendar calendario = Calendar.getInstance();
+            int hora = calendario.get(Calendar.HOUR_OF_DAY);
+            int minuto = calendario.get(Calendar.MINUTE);
+            TimePickerDialog timePickerDialog = new TimePickerDialog(requireContext(),
+                    (view, selectedHour, selectedMinute) -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            AlarmManager alarmManager = (AlarmManager) requireContext().getSystemService(Context.ALARM_SERVICE);
+                            if (alarmManager.canScheduleExactAlarms()) {
+                                programarAlarmaDiaria(selectedHour, selectedMinute);
+                            } else {
+                                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                                startActivity(intent);
+                            }
+                        } else {
+                            programarAlarmaDiaria(selectedHour, selectedMinute);
+                        }
+                    }, hora, minuto, true);
+
+            timePickerDialog.show();
+        });
         checkLoginState();
         return root;
     }
@@ -283,6 +317,38 @@ public class ProfileFragment extends Fragment {
         builder.create().show();
     }
 
+    private static final int ALARM_REQUEST_CODE = 123;
+
+    private void programarAlarmaDiaria(int hora, int minuto) {
+        Context context = requireContext();
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, AlarmReceiver.class);
+
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                context,
+                ALARM_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        calendar.set(Calendar.HOUR_OF_DAY, hora);
+        calendar.set(Calendar.MINUTE, minuto);
+        calendar.set(Calendar.SECOND, 0);
+
+        if (calendar.getTimeInMillis() < System.currentTimeMillis()) {
+            calendar.add(Calendar.DAY_OF_YEAR, 1);
+        }
+
+        AlarmManager.AlarmClockInfo alarmClockInfo = new AlarmManager.AlarmClockInfo(
+                calendar.getTimeInMillis(),
+                pendingIntent
+        );
+
+        alarmManager.setAlarmClock(alarmClockInfo, pendingIntent);
+    }
+
+
     private void registrarUsuario(String nombre, String correo, String contrasena) {
         UsuariosWebService.registrarUsuario(nombre, correo, contrasena, new UsuariosWebService.RegistroCallback() {
             @Override
@@ -307,8 +373,6 @@ public class ProfileFragment extends Fragment {
         checkLoginState();
     }
 
-
-
     @Override
     public void onDestroyView() {
         super.onDestroyView();
@@ -317,4 +381,6 @@ public class ProfileFragment extends Fragment {
             drawerLayout.removeDrawerListener(drawerToggle);
         }
     }
+
+
 }

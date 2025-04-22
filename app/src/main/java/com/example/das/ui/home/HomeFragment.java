@@ -20,8 +20,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.Toast;
 import android.app.AlertDialog;
 
@@ -40,14 +38,12 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.room.Room;
 
 import com.example.das.LocationService;
 import com.example.das.R;
 import com.example.das.activities.DetailCapsuleActivity;
 import com.example.das.adapter.CapsulaAdapter;
 import com.example.das.adapter.ImagenAdapter;
-import com.example.das.data.database.AppDatabase;
 import com.example.das.data.entity.Capsula;
 import com.example.das.data.entity.Imagen;
 import com.example.das.data.entity.ImagenCapsulaRelation;
@@ -56,14 +52,10 @@ import com.example.das.webservice.UsuariosWebService;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -71,9 +63,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Executors;
 
 public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaClickListener {
     private ActivityResultLauncher<Intent> takePictureLauncher;
@@ -130,12 +120,33 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             ArrayList<String> imagenesStrings = savedInstanceState.getStringArrayList("imagenes");
             savedImagenes.clear();
             if (imagenesStrings != null) {
+
                 for (String uriString : imagenesStrings) {
-                  //  savedImagenes.add(Uri.parse(uriString));
+                    try {
+                        Uri uri = Uri.parse(uriString);
+                        InputStream inputStream = requireContext().getContentResolver().openInputStream(uri);
+                        byte[] blob = leerBytesDesdeInputStream(inputStream);
+                        Imagen imagen = new Imagen(0,blob);
+                        savedImagenes.add(imagen);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                    }
                 }
             }
         }
 
+    }
+    private byte[] leerBytesDesdeInputStream(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
+        int bufferSize = 1024;
+        byte[] buffer = new byte[bufferSize];
+
+        int len;
+        while ((len = inputStream.read(buffer)) != -1) {
+            byteBuffer.write(buffer, 0, len);
+        }
+        inputStream.close();
+        return byteBuffer.toByteArray();
     }
 
     /**
@@ -205,7 +216,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             }
         });
         fab.setOnClickListener(v -> mostrarDialogoAgregarCapsula());
-
+        checkLoginState();
         // Restaurar diálogo si estaba abierto
         if (isDialogShowing) {
             mostrarDialogoAgregarCapsula(savedTitulo, savedDescripcion, savedImagenes);
@@ -213,7 +224,7 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         btnLogin = view.findViewById(R.id.btnLogin);
         btnLogin.setOnClickListener(v -> mostrarDialogoLogin());
 
-        checkLoginState();
+
     }
 
     @Override
@@ -232,11 +243,12 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
             }
             if (imagenAdapter != null) {
                 List<Imagen> imagenes = imagenAdapter.getImagenes();
+                ArrayList<Uri> imagenUris = guardarBlobsYObtenerUris(getActivity(), imagenes);
                 ArrayList<String> uris = new ArrayList<>();
-        /*        for (Uri uri : imagenes) {
+                for (Uri uri : imagenUris) {
                     uris.add(uri.toString());
                 }
-                outState.putStringArrayList("imagenes", uris);*/
+                outState.putStringArrayList("imagenes", uris);
             }
             outState.putDouble("lat", currentLat);
             outState.putDouble("lon", currentLon);
@@ -771,6 +783,10 @@ public class HomeFragment extends Fragment implements CapsulaAdapter.OnCapsulaCl
         super.onDestroyView();
         if (mapView != null) {
             mapView.onDestroy();
+        }
+        if (currentDialog != null && currentDialog.isShowing()) {
+            currentDialog.dismiss();
+            currentDialog = null;
         }
     }
 }
