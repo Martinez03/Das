@@ -35,7 +35,7 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyD8-e-K6rTqHoE60ICDxLvSajzJtHsl-Nw" />
+            android:value="AIzaSyCwtEp6tgvgbVopr0GpxQ_z6kFOWIulhLU" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
